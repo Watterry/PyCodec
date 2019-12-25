@@ -4,6 +4,8 @@ from scipy.fftpack import fft, dct
 import scipy
 import matplotlib.pyplot as plt
 import matplotlib
+import math
+from numpy import r_
 
 def img2dct(a):
     return scipy.fftpack.dct( scipy.fftpack.dct( a, axis=0, norm='ortho' ), axis=1, norm='ortho' )
@@ -14,6 +16,13 @@ def dct2img(a):
 def normalization(data):
     _range = np.max(data) - np.min(data)
     return (data - np.min(data)) / _range
+
+def psnr(img1, img2):
+    mse = np.mean(np.square(img1 - img2))
+    if mse == 0:
+        return 100
+    PIXEL_MAX = 255.0
+    return 10 * math.log10(PIXEL_MAX**2 / mse)
 
 #show all the block in big image, with two margin within two block
 # U is 4D array, which is N*N matrix's basis pattern
@@ -60,13 +69,7 @@ def dct_detail(S, N = 4):
             U[k][j] = np.multiply(temp, U_1D[j])
 
     # show basis pattern
-    showBasisPatternTogether(U, N)
-
-    # plt.figure()
-    # print(U[0][0])
-    # plt.imshow(U[0][0], cmap='gray', vmin=0, vmax=1)
-    # plt.title( "An 4x4 coefficients block")
-    # plt.show()
+    #showBasisPatternTogether(U, N)
 
     T = np.zeros((N, N))
     
@@ -75,38 +78,38 @@ def dct_detail(S, N = 4):
         for j in range(0, N):
             T[k][j] = np.multiply(U[k][j], S).sum()
 
-    print("\nthe expansion coefficients:")
+    #print("\nthe expansion coefficients:")
     T = np.around(T, 4)
-    print(T)
+    #print(T)
 
     # inverse transform, calculate the S by coefficients & basis
     S_inverse = np.zeros([N, N])
-    for k in range(0, N):
-        for j in range(0, N):
+    for k in range(0, 2):
+        for j in range(0, 2):
             S_inverse = S_inverse + T[k][j]*U[k][j]
-    print("\nInverse Result:")
-    print(np.round(S_inverse,0))
+    #print("\nInverse Result:")
+    #print(np.round(S_inverse,0))
 
-if __name__ == "__main__":
-    np.set_printoptions(suppress=True)
+    return T, S_inverse
 
+def processCheck():
     # 4x4 block test data set
-    N = 4
-    S = np.array([[1, 2, 2, 0],
-                  [0, 1, 3, 1],
-                  [0, 1, 2, 1],
-                  [1, 2, 2, -1]])
+    # N = 4
+    # S = np.array([[1, 2, 2, 0],
+    #               [0, 1, 3, 1],
+    #               [0, 1, 2, 1],
+    #               [1, 2, 2, -1]])
 
     # real 8x8 image test data
-    # N = 8
-    # S = np.array([[182, 196, 199, 201, 203, 201, 199, 173],
-    #               [175, 180, 176, 142, 148, 152, 148, 120],
-    #               [148, 118, 123, 115, 114, 107, 108, 107],
-    #               [115, 110, 110, 112, 105, 109, 101, 100],
-    #               [104, 106, 106, 102, 104, 95, 98, 105],
-    #               [99, 115, 131, 104, 118, 86, 87, 133],
-    #               [112, 154, 154, 107, 140, 97, 88, 151],
-    #               [145, 158, 178, 123, 132, 140, 138, 133]])
+    N = 8
+    S = np.array([[182, 196, 199, 201, 203, 201, 199, 173],
+                  [175, 180, 176, 142, 148, 152, 148, 120],
+                  [148, 118, 123, 115, 114, 107, 108, 107],
+                  [115, 110, 110, 112, 105, 109, 101, 100],
+                  [104, 106, 106, 102, 104, 95, 98, 105],
+                  [99, 115, 131, 104, 118, 86, 87, 133],
+                  [112, 154, 154, 107, 140, 97, 88, 151],
+                  [145, 158, 178, 123, 132, 140, 138, 133]])
 
     # random test data
     # N = 8   # axis of 1D vector
@@ -116,7 +119,9 @@ if __name__ == "__main__":
     print(S)
 
     # calculate DCT patterns by formula
-    dct_detail(S, N)
+    temp, S_i = dct_detail(S, N)
+    diff = psnr(S, np.round(S_i))
+    print("\nPSNR is: ", np.around(diff, 2))
 
     # check the coefficients by Scipy
     T_scipy = np.round(img2dct(S), 4)
@@ -127,3 +132,58 @@ if __name__ == "__main__":
     S_scipy = np.round(dct2img(T_scipy), 4)
     print("\nInverse Result using SciPy:")
     print(S_scipy)
+
+def ImgDctUsingScipy(im):
+    imsize = im.shape
+    dct = np.zeros(imsize)
+    for i in r_[:imsize[0]:8]:
+        for j in r_[:imsize[1]:8]:
+            dct[i:(i+8),j:(j+8)] = img2dct( im[i:(i+8),j:(j+8)] )
+
+    #get the inverse image
+    img_dct = np.zeros(imsize)
+    for i in r_[:imsize[0]:8]:
+        for j in r_[:imsize[1]:8]:
+            img_dct[i:(i+8),j:(j+8)] = dct2img( dct[i:(i+8),j:(j+8)] )
+
+    return dct, np.round(img_dct, 0)
+
+def ImgDctUsingDetail(im):
+    imsize = im.shape
+    dct = np.zeros(imsize)
+    img_dct = np.zeros(imsize)
+
+    for i in r_[:imsize[0]:8]:
+        for j in r_[:imsize[1]:8]:
+            dct[i:(i+8),j:(j+8)], img_dct[i:(i+8),j:(j+8)] = dct_detail( im[i:(i+8),j:(j+8)], 8 )
+
+    return dct, np.round(img_dct, 0)
+
+def processWholeImage():
+    im = plt.imread("lena2.tif").astype(float)
+    print(im.shape)
+    
+    #dct, img_dct = ImgDctUsingScipy(im)   # using Scipy way
+    dct, img_dct = ImgDctUsingDetail(im)   # using my own calculation way
+
+    plt.figure()
+    plt.imshow(dct,cmap='gray',vmax = np.max(dct)*0.01,vmin = 0)
+    plt.title( "8x8 DCTs of the image")
+
+    plt.figure()
+    plt.imshow( np.hstack( (im, img_dct) ) ,cmap='gray')
+    plt.title("Comparison between original and DCT compressed images" )
+
+    diff = psnr(im, img_dct)
+    print("\nPSNR is: ", np.around(diff, 2))
+
+    plt.show()
+
+if __name__ == "__main__":
+    np.set_printoptions(suppress=True)
+
+    # check the DCT and iDCT process
+    #processCheck()
+
+    # check the whole image DCT&iDCT process
+    processWholeImage()
