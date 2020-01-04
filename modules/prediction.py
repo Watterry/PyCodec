@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
-
+from dct_formula_2D import ImgDctUsingDetail
 
 def SAE(a, b):
     '''
@@ -88,11 +88,11 @@ def pickTheBestMode(block, H, V, P):
     temp3, diff3 = mode3_16x16(block, H, V, P)
 
     list1, list2 = [temp0, temp1, temp2, temp3], [diff0, diff1, diff2, diff3]
-    pos = list2.index(min(list2))
+    mode = list2.index(min(list2))
 
-    return list1[pos]
+    return list1[mode], mode
 
-def processWholeImage():
+def predictImage():
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
     print(im.shape)
     
@@ -100,6 +100,7 @@ def processWholeImage():
     imsize = im.shape
 
     predict = np.zeros(imsize)    # intra prediction result, motion compensation
+    mode_map = np.zeros(imsize)    # save block mode information
 
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
@@ -127,7 +128,8 @@ def processWholeImage():
                 V = im[i:(i+step),j-1]
                 P = im[i-1, j-1]
 
-            predict[i:(i+step),j:(j+step)] = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
+            predict[i:(i+step),j:(j+step)], mode = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
+            mode_map[i:(i+step),j:(j+step)].fill(mode)
 
     diff = SAE(im, predict)
     print(diff)
@@ -143,12 +145,32 @@ def processWholeImage():
     plt.title("Prediction Using H.264 16x16 intra prediction")
 
     plt.figure()
+    plt.imshow(mode_map, cmap='gray')
+    # add mode number on the picture
+    # for i in r_[:imsize[0]:step]:
+    #     for j in r_[:imsize[1]:step]:
+    #         plt.text(i+4, j+4, mode_map[i,j])
+    plt.title("mode map of 16x16 block intra prediction")
+
+    plt.figure()
     plt.imshow(residual, cmap='gray')
     plt.title("residual after subtracting intra prediction")
+
+    # compare the DCT result of origianl image and residual image
+    # dct, img_dct = ImgDctUsingDetail(im)
+    # dct_residual, idct_residual = ImgDctUsingDetail(residual)
+
+    # plt.figure()
+    # plt.imshow(dct, cmap='gray')
+    # plt.title("DCT coefficients of original image")
+
+    # plt.figure()
+    # plt.imshow(dct_residual, cmap='gray')
+    # plt.title("DCT coefficients of residual image")
 
     plt.show()
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True)
 
-    processWholeImage()
+    predictImage()
