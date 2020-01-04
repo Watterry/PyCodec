@@ -99,8 +99,8 @@ def processWholeImage():
     step = 16 # 16x16 as block
     imsize = im.shape
 
-    result = np.zeros(imsize)   # prediction result
-    rebuild = np.zeros(imsize)   # reconstructed frame
+    predict = np.zeros(imsize)    # intra prediction result, motion compensation
+
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
             H = np.zeros((step, 1))
@@ -127,25 +127,24 @@ def processWholeImage():
                 V = im[i:(i+step),j-1]
                 P = im[i-1, j-1]
 
-            result[i:(i+step),j:(j+step)] = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
+            predict[i:(i+step),j:(j+step)] = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
 
-            # todo: need to use quantilization to reconstruct
-            rebuild[i:(i+step),j:(j+step)] = im[i:(i+step),j:(j+step)]
-
-    diff = SAE(im, result)
+    diff = SAE(im, predict)
     print(diff)
+
+    residual = im - predict
 
     plt.figure()
     plt.imshow(im, cmap='gray')
     plt.title("Original of the image")
 
     plt.figure()
-    plt.imshow(result, cmap='gray')
-    plt.title("Prediction result of the image")
+    plt.imshow(predict, cmap='gray')
+    plt.title("Prediction Using H.264 16x16 intra prediction")
 
     plt.figure()
-    plt.imshow(rebuild, cmap='gray')
-    plt.title("Rebuild of the image")
+    plt.imshow(residual, cmap='gray')
+    plt.title("residual after subtracting intra prediction")
 
     plt.show()
 
