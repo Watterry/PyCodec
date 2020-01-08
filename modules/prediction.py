@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
 from dct_formula_2D import ImgDctUsingDetail
+import zlib
+import sys
+from ZigZag import ZigzagMatrix
 
 def SAE(a, b):
     '''
@@ -156,17 +159,33 @@ def predictImage():
     plt.imshow(residual, cmap='gray')
     plt.title("residual after subtracting intra prediction")
 
-    # compare the DCT result of origianl image and residual image
-    # dct, img_dct = ImgDctUsingDetail(im)
-    # dct_residual, idct_residual = ImgDctUsingDetail(residual)
+    #compare the DCT result of origianl image and residual image
+    dct, img_dct = ImgDctUsingDetail(im)
+    dct_residual, idct_residual = ImgDctUsingDetail(residual)
 
-    # plt.figure()
-    # plt.imshow(dct, cmap='gray')
-    # plt.title("DCT coefficients of original image")
+    decom_dct = zlib.compress(np.trunc(dct))
+    print(sys.getsizeof(decom_dct))
 
-    # plt.figure()
-    # plt.imshow(dct_residual, cmap='gray')
-    # plt.title("DCT coefficients of residual image")
+    #test code for ZigZag
+    zig = ZigzagMatrix()
+    # test = np.array([[1, 2, 3, 4, 5, 6],
+    #                  [7, 8, 9, 10, 11, 12],
+    #                  [13, 14, 15, 16, 17, 18]])
+    # print(zig.ConvertZMatrix(test))
+
+    # decom_dct = zlib.compress(dct_residual)
+    # print(sys.getsizeof(decom_dct))
+    dct_res_1D = zig.zig2Matrix(np.trunc(dct_residual))
+    decom_bytes = zlib.compress(dct_res_1D)
+    print(sys.getsizeof(decom_bytes))
+
+    plt.figure()
+    plt.imshow(dct, cmap='gray')
+    plt.title("DCT coefficients of original image")
+
+    plt.figure()
+    plt.imshow(dct_residual, cmap='gray')
+    plt.title("DCT coefficients of residual image")
 
     plt.show()
 
