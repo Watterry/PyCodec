@@ -1,4 +1,5 @@
-# python
+import numpy as np
+
 class ZigzagMatrix:
     # @param: a matrix of integers
     # @return: a list of integers
@@ -7,11 +8,12 @@ class ZigzagMatrix:
         j = 0
         m = len(matrix)
         n = len(matrix[0])
-        ret = []
+        ret = np.zeros(m*n)
 
         up = True
-        for _ in range(m*n):
-            ret.append(matrix[i][j])
+        for index in range(m*n):
+            #ret.append(matrix[i][j])
+            ret[index] = matrix[i][j]
             if up:
                 if i-1<0 or j+1>=n:
                     up = False

@@ -15,6 +15,29 @@ def SAE(a, b):
     result = np.sum(np.abs(np.subtract(a,b,dtype=np.float))) / (a.size)
     return result
 
+def ZigzagCompress(matrix, step):
+    '''
+    do the ZigZag re-arrange and quantization of an matrix, and compress it using zlib
+    : param matrix: input numpy data, can be array or matrix
+    : param step: quantization step, a setting of 0&1 will produce lossless output.
+    '''
+    qp = 1
+    if step > 0:
+        qp = step
+
+    #test code for ZigZag
+    zig = ZigzagMatrix()
+    # test = np.array([[1, 2, 3, 4, 5, 6],
+    #                  [7, 8, 9, 10, 11, 12],
+    #                  [13, 14, 15, 16, 17, 18]])
+    # print(zig.zig2Matrix(test))
+
+    quantizer = np.round( zig.zig2Matrix(np.trunc(matrix)) / qp )
+    compressed = zlib.compress(quantizer)
+    print(sys.getsizeof(compressed))
+
+    return compressed
+
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
     size = block.shape
@@ -163,28 +186,28 @@ def predictImage():
     dct, img_dct = ImgDctUsingDetail(im)
     dct_residual, idct_residual = ImgDctUsingDetail(residual)
 
-    decom_dct = zlib.compress(np.trunc(dct))
-    print(sys.getsizeof(decom_dct))
+    # np.savetxt("dct.csv", np.trunc(dct), delimiter=",", fmt='%.1f')
+    # np.savetxt("dct_residual.csv", np.trunc(dct_residual), delimiter=",", fmt='%.1f')
 
-    #test code for ZigZag
-    zig = ZigzagMatrix()
-    # test = np.array([[1, 2, 3, 4, 5, 6],
-    #                  [7, 8, 9, 10, 11, 12],
-    #                  [13, 14, 15, 16, 17, 18]])
-    # print(zig.ConvertZMatrix(test))
+    step = 10
+    print("Image zlib size:")
+    ZigzagCompress(im, step)
 
-    # decom_dct = zlib.compress(dct_residual)
-    # print(sys.getsizeof(decom_dct))
-    dct_res_1D = zig.zig2Matrix(np.trunc(dct_residual))
-    decom_bytes = zlib.compress(dct_res_1D)
-    print(sys.getsizeof(decom_bytes))
+    print("DCT zlib size:")
+    dct_1D = ZigzagCompress(dct, step)
+
+    print("dct_residual zlib size:")
+    dct_res_1D = ZigzagCompress(dct_residual, step)
+
+    #np.savetxt("dct.csv", dct_1D, delimiter=",", fmt='%.1f')
+    #np.savetxt("dct_residual.csv", dct_res_1D, delimiter=",", fmt='%.1f')
 
     plt.figure()
-    plt.imshow(dct, cmap='gray')
+    plt.imshow(dct, cmap='gray', vmax = np.max(dct)*0.01,vmin = 0)
     plt.title("DCT coefficients of original image")
 
     plt.figure()
-    plt.imshow(dct_residual, cmap='gray')
+    plt.imshow(dct_residual, cmap='gray', vmax = np.max(dct_residual)*0.01,vmin = 0)
     plt.title("DCT coefficients of residual image")
 
     plt.show()
