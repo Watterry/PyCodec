@@ -52,7 +52,7 @@ def UnZigzagCompress(binary, step, m, n):
 
     # step3: unzigzag to matrix
     zig = ZigzagMatrix()
-    matrix = zig.matrix2zig(data_1D, step, m, n)
+    matrix = zig.matrix2zig(data_1D, m, n)
 
     return matrix
 
