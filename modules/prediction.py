@@ -25,18 +25,36 @@ def ZigzagCompress(matrix, step):
     if step > 0:
         qp = step
 
-    #test code for ZigZag
     zig = ZigzagMatrix()
-    # test = np.array([[1, 2, 3, 4, 5, 6],
-    #                  [7, 8, 9, 10, 11, 12],
-    #                  [13, 14, 15, 16, 17, 18]])
-    # print(zig.zig2Matrix(test))
-
-    quantizer = np.round( zig.zig2Matrix(np.trunc(matrix)) / qp )
+    quantizer = np.round( zig.zig2matrix(np.trunc(matrix)) / qp )
     compressed = zlib.compress(quantizer)
     print(sys.getsizeof(compressed))
 
     return compressed
+
+def UnZigzagCompress(binary, step, m, n):
+    '''
+    Undo the zlib compression, quantization, ZigZag process
+    : param binary: the binary data compressed by zlib
+    : param step: quantization step before zlib
+    : param m: the width of the image
+    : param n: the height of the image
+    '''
+    qp = 1
+    if step > 0:
+        qp = step
+
+    # step1: unzip
+    temp = zlib.decompress(binary)
+
+    # step2: inverse quantization
+    data_1D = temp * qp
+
+    # step3: unzigzag to matrix
+    zig = ZigzagMatrix()
+    matrix = zig.matrix2zig(data_1D, step, m, n)
+
+    return matrix
 
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
@@ -212,7 +230,16 @@ def predictImage():
 
     plt.show()
 
+    return dct_res_1D
+
+def inversePrediction():
+    '''
+    Inverse the intra prediction process of a image
+    : param binary: the binary data compressed by zlib
+    : param step: the quantization step
+    '''
+
 if __name__ == "__main__":
     np.set_printoptions(suppress=True)
 
-    predictImage()
+    re = predictImage()
