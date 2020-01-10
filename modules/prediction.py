@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
-from dct_formula_2D import ImgDctUsingDetail
+import dct_formula_2D
 import zlib
 import sys
 from ZigZag import ZigzagMatrix
@@ -136,9 +136,13 @@ def pickTheBestMode(block, H, V, P):
 
     return list1[mode], mode
 
-def predictImage():
-    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
-    print(im.shape)
+def predictImage(im, step):
+    '''
+    image intra predict
+    : param im: input image
+    : param step: quantization step size
+    : return: dct coefficient after quantization, zigzag, zlib compression
+    '''
     
     step = 16 # 16x16 as block
     imsize = im.shape
@@ -201,8 +205,18 @@ def predictImage():
     plt.title("residual after subtracting intra prediction")
 
     #compare the DCT result of origianl image and residual image
-    dct, img_dct = ImgDctUsingDetail(im)
-    dct_residual, idct_residual = ImgDctUsingDetail(residual)
+    # dct, img_dct = dct_formula_2D.ImgDctUsingDetail(im)
+    # dct_residual, idct_residual = dct_formula_2D.ImgDctUsingDetail(residual)
+    dct = np.round(dct_formula_2D.Img2DctUsingScipy(im, 16), 4)
+    dct_residual = np.round(dct_formula_2D.Img2DctUsingScipy(residual, 16), 4)
+
+    plt.figure()
+    plt.imshow(dct, cmap='gray', vmax = np.max(dct)*0.01,vmin = 0)
+    plt.title("DCT coefficients of original image")
+
+    plt.figure()
+    plt.imshow(dct_residual, cmap='gray', vmax = np.max(dct_residual)*0.01,vmin = 0)
+    plt.title("DCT coefficients of residual image")
 
     # np.savetxt("dct.csv", np.trunc(dct), delimiter=",", fmt='%.1f')
     # np.savetxt("dct_residual.csv", np.trunc(dct_residual), delimiter=",", fmt='%.1f')
@@ -220,26 +234,31 @@ def predictImage():
     #np.savetxt("dct.csv", dct_1D, delimiter=",", fmt='%.1f')
     #np.savetxt("dct_residual.csv", dct_res_1D, delimiter=",", fmt='%.1f')
 
-    plt.figure()
-    plt.imshow(dct, cmap='gray', vmax = np.max(dct)*0.01,vmin = 0)
-    plt.title("DCT coefficients of original image")
+    return dct_1D   #temp test code
+    #return dct_res_1D
 
-    plt.figure()
-    plt.imshow(dct_residual, cmap='gray', vmax = np.max(dct_residual)*0.01,vmin = 0)
-    plt.title("DCT coefficients of residual image")
-
-    plt.show()
-
-    return dct_res_1D
-
-def inversePrediction():
+def inversePrediction(binary, step, m, n):
     '''
     Inverse the intra prediction process of a image
     : param binary: the binary data compressed by zlib
     : param step: the quantization step
     '''
+    dct = UnZigzagCompress(binary, step, m, n)
+    img = dct_formula_2D.Dct2ImgUsingScipy(dct, 16)
+
+    return img
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True)
 
-    re = predictImage()
+    qp = 10
+    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
+    print(im.shape)
+    re = predictImage(im, qp)
+
+    i_im = inversePrediction(re, qp, im.shape[0], im.shape[1])
+
+    plt.figure()
+    plt.imshow(i_im, cmap='gray')
+    plt.title("Inverse image")
+    plt.show()
