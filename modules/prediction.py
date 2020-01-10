@@ -2,9 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
 import dct_formula_2D
-import zlib
 import sys
-from ZigZag import ZigzagMatrix
+import ZigZag
 
 def SAE(a, b):
     '''
@@ -14,47 +13,6 @@ def SAE(a, b):
     '''
     result = np.sum(np.abs(np.subtract(a,b,dtype=np.float))) / (a.size)
     return result
-
-def ZigzagCompress(matrix, step):
-    '''
-    do the ZigZag re-arrange and quantization of an matrix, and compress it using zlib
-    : param matrix: input numpy data, can be array or matrix
-    : param step: quantization step, a setting of 0&1 will produce lossless output.
-    '''
-    qp = 1
-    if step > 0:
-        qp = step
-
-    zig = ZigzagMatrix()
-    quantizer = np.round( zig.zig2matrix(np.trunc(matrix)) / qp )
-    compressed = zlib.compress(quantizer)
-    print(sys.getsizeof(compressed))
-
-    return compressed
-
-def UnZigzagCompress(binary, step, m, n):
-    '''
-    Undo the zlib compression, quantization, ZigZag process
-    : param binary: the binary data compressed by zlib
-    : param step: quantization step before zlib
-    : param m: the width of the image
-    : param n: the height of the image
-    '''
-    qp = 1
-    if step > 0:
-        qp = step
-
-    # step1: unzip
-    temp = zlib.decompress(binary)
-
-    # step2: inverse quantization
-    data_1D = temp * qp
-
-    # step3: unzigzag to matrix
-    zig = ZigzagMatrix()
-    matrix = zig.matrix2zig(data_1D, m, n)
-
-    return matrix
 
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
@@ -207,8 +165,8 @@ def predictImage(im, step):
     #compare the DCT result of origianl image and residual image
     # dct, img_dct = dct_formula_2D.ImgDctUsingDetail(im)
     # dct_residual, idct_residual = dct_formula_2D.ImgDctUsingDetail(residual)
-    dct = np.round(dct_formula_2D.Img2DctUsingScipy(im, 16), 4)
-    dct_residual = np.round(dct_formula_2D.Img2DctUsingScipy(residual, 16), 4)
+    dct = np.round(dct_formula_2D.Img2DctUsingScipy(im, step), 4)
+    dct_residual = np.round(dct_formula_2D.Img2DctUsingScipy(residual, step), 4)
 
     plt.figure()
     plt.imshow(dct, cmap='gray', vmax = np.max(dct)*0.01,vmin = 0)
@@ -221,29 +179,34 @@ def predictImage(im, step):
     # np.savetxt("dct.csv", np.trunc(dct), delimiter=",", fmt='%.1f')
     # np.savetxt("dct_residual.csv", np.trunc(dct_residual), delimiter=",", fmt='%.1f')
 
-    step = 10
+    qp_step = 1
     print("Image zlib size:")
-    ZigzagCompress(im, step)
+    im_1D = ZigZag.Compress(im, qp_step)
+    print(sys.getsizeof(im_1D))
 
     print("DCT zlib size:")
-    dct_1D = ZigzagCompress(dct, step)
+    dct_1D = ZigZag.Compress(dct, qp_step)
+    print(sys.getsizeof(dct_1D))
 
     print("dct_residual zlib size:")
-    dct_res_1D = ZigzagCompress(dct_residual, step)
+    dct_res_1D = ZigZag.Compress(dct_residual, qp_step)
+    print(sys.getsizeof(dct_res_1D))
 
-    #np.savetxt("dct.csv", dct_1D, delimiter=",", fmt='%.1f')
-    #np.savetxt("dct_residual.csv", dct_res_1D, delimiter=",", fmt='%.1f')
+    temp = ZigZag.UnCompress(dct_1D, qp_step, imsize[0], imsize[1])
+
+    print("diff")
+    print(dct-temp)
 
     return dct_1D   #temp test code
     #return dct_res_1D
 
-def inversePrediction(binary, step, m, n):
+def inversePrediction(binary, qp, m, n):
     '''
     Inverse the intra prediction process of a image
     : param binary: the binary data compressed by zlib
     : param step: the quantization step
     '''
-    dct = UnZigzagCompress(binary, step, m, n)
+    dct =  ZigZag.UnCompress(binary, qp, m, n)
     img = dct_formula_2D.Dct2ImgUsingScipy(dct, 16)
 
     return img
