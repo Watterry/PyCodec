@@ -7,10 +7,10 @@ import matplotlib
 import math
 from numpy import r_
 
-def img2dct(a):
+def block2dct(a):
     return scipy.fftpack.dct( scipy.fftpack.dct( a, axis=0, norm='ortho' ), axis=1, norm='ortho' )
 
-def dct2img(a):
+def dct2block(a):
     return scipy.fftpack.idct( scipy.fftpack.idct( a, axis=0 , norm='ortho'), axis=1 , norm='ortho')
 
 def normalization(data):
@@ -124,38 +124,48 @@ def processCheck():
     print("\nPSNR is: ", np.around(diff, 2))
 
     # check the coefficients by Scipy
-    T_scipy = np.round(img2dct(S), 4)
+    T_scipy = np.round(block2dct(S), 4)
     print("\nthe expansion coefficients using SciPy:")
     print(T_scipy)
 
     #something wrong with below calculation
-    S_scipy = np.round(dct2img(T_scipy), 4)
+    S_scipy = np.round(dct2block(T_scipy), 4)
     print("\nInverse Result using SciPy:")
     print(S_scipy)
 
-def ImgDctUsingScipy(im):
+def ImgDctUsingScipy(im, m):
+    '''
+    transform image to dct coefficients using my own calculation
+    : param im: image data, currently just support square which means image's width equals to height
+    : param m: dct block size,should be width==height
+    '''
     imsize = im.shape
     dct = np.zeros(imsize)
-    for i in r_[:imsize[0]:8]:
-        for j in r_[:imsize[1]:8]:
-            dct[i:(i+8),j:(j+8)] = img2dct( im[i:(i+8),j:(j+8)] )
+    for i in r_[:imsize[0]:m]:
+        for j in r_[:imsize[1]:m]:
+            dct[i:(i+m),j:(j+m)] = block2dct( im[i:(i+m),j:(j+m)] )
 
     #get the inverse image
     img_dct = np.zeros(imsize)
-    for i in r_[:imsize[0]:8]:
-        for j in r_[:imsize[1]:8]:
-            img_dct[i:(i+8),j:(j+8)] = dct2img( dct[i:(i+8),j:(j+8)] )
+    for i in r_[:imsize[0]:m]:
+        for j in r_[:imsize[1]:m]:
+            img_dct[i:(i+m),j:(j+m)] = dct2block( dct[i:(i+m),j:(j+m)] )
 
     return dct, np.round(img_dct, 0)
 
-def ImgDctUsingDetail(im):
+def ImgDctUsingDetail(im, m):
+    '''
+    transform image to dct coefficients using my own calculation
+    : param im: image data, currently just support square which means image's width equals to height
+    : param m: dct block size,should be width==height
+    '''
     imsize = im.shape
     dct = np.zeros(imsize)
     img_dct = np.zeros(imsize)
 
-    for i in r_[:imsize[0]:8]:
-        for j in r_[:imsize[1]:8]:
-            dct[i:(i+8),j:(j+8)], img_dct[i:(i+8),j:(j+8)] = dct_detail( im[i:(i+8),j:(j+8)], 8 )
+    for i in r_[:imsize[0]:m]:
+        for j in r_[:imsize[1]:m]:
+            dct[i:(i+m),j:(j+m)], img_dct[i:(i+m),j:(j+m)] = dct_detail( im[i:(i+m),j:(j+m)], m )
 
     return dct, np.round(img_dct, 0)
 
@@ -163,8 +173,8 @@ def processWholeImage():
     im = plt.imread("lena2.tif").astype(float)
     print(im.shape)
     
-    #dct, img_dct = ImgDctUsingScipy(im)   # using Scipy way
-    dct, img_dct = ImgDctUsingDetail(im)   # using my own calculation way
+    dct, img_dct = ImgDctUsingScipy(im, 8)   # using Scipy way
+    #dct, img_dct = ImgDctUsingDetail(im, 8)   # using my own calculation way
 
     plt.figure()
     plt.imshow(dct,cmap='gray',vmax = np.max(dct)*0.01,vmin = 0)
