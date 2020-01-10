@@ -133,9 +133,9 @@ def processCheck():
     print("\nInverse Result using SciPy:")
     print(S_scipy)
 
-def ImgDctUsingScipy(im, m):
+def Img2DctUsingScipy(im, m):
     '''
-    transform image to dct coefficients using my own calculation
+    transform image to dct coefficients using my scipy embed functions
     : param im: image data, currently just support square which means image's width equals to height
     : param m: dct block size,should be width==height
     '''
@@ -144,16 +144,23 @@ def ImgDctUsingScipy(im, m):
     for i in r_[:imsize[0]:m]:
         for j in r_[:imsize[1]:m]:
             dct[i:(i+m),j:(j+m)] = block2dct( im[i:(i+m),j:(j+m)] )
+    return dct
 
-    #get the inverse image
+def Dct2ImgUsingScipy(dct_im, m):
+    '''
+    get the inverse image of dct coefficients
+    : param dct: dct image data, currently just support square which means dct's width equals to height
+    : param m: dct block size,should be width==height
+    '''
+    imsize = dct_im.shape
     img_dct = np.zeros(imsize)
     for i in r_[:imsize[0]:m]:
         for j in r_[:imsize[1]:m]:
-            img_dct[i:(i+m),j:(j+m)] = dct2block( dct[i:(i+m),j:(j+m)] )
+            img_dct[i:(i+m),j:(j+m)] = dct2block( dct_im[i:(i+m),j:(j+m)] )
 
-    return dct, np.round(img_dct, 0)
+    return np.round(img_dct, 0)
 
-def ImgDctUsingDetail(im, m):
+def Img2DctUsingDetail(im, m):
     '''
     transform image to dct coefficients using my own calculation
     : param im: image data, currently just support square which means image's width equals to height
@@ -173,8 +180,13 @@ def processWholeImage():
     im = plt.imread("lena2.tif").astype(float)
     print(im.shape)
     
-    dct, img_dct = ImgDctUsingScipy(im, 8)   # using Scipy way
-    #dct, img_dct = ImgDctUsingDetail(im, 8)   # using my own calculation way
+    BLOCK_WIDTH = 8
+    # using Scipy way
+    dct = Img2DctUsingScipy(im, BLOCK_WIDTH)
+    img_dct = Dct2ImgUsingScipy(dct, BLOCK_WIDTH)
+
+    # using my own calculation way
+    #dct, img_dct = ImgDctUsingDetail(im, BLOCK_WIDTH)
 
     plt.figure()
     plt.imshow(dct,cmap='gray',vmax = np.max(dct)*0.01,vmin = 0)
