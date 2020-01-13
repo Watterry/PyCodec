@@ -4,15 +4,7 @@ from numpy import r_
 import dct_formula_2D
 import sys
 import ZigZag
-
-def SAE(a, b):
-    '''
-    calculate Sum of Absolute Errors of two images, divided by number of pixels
-    :param a: image A, matrix
-    :param b: image B, matrix
-    '''
-    result = np.sum(np.abs(np.subtract(a,b,dtype=np.float))) / (a.size)
-    return result
+import tools
 
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
@@ -22,7 +14,7 @@ def mode0_16x16(block, H):
         temp[i,:] = H
 
     #print(temp)
-    diff = SAE(block, temp)
+    diff = tools.SAE(block, temp)
     return temp, diff
 
 # 16x16 block's Mode 1 (horizontal) prediction mode
@@ -33,7 +25,7 @@ def mode1_16x16(block, V):
         temp[:,i] = V
 
     #print(temp)
-    diff = SAE(block, temp)
+    diff = tools.SAE(block, temp)
     return temp, diff
 
 # 16x16 block's Mode 2 (mean) prediction mode
@@ -46,7 +38,7 @@ def mode2_16x16(block, H, V):
     temp[:] = mean
 
     #print(temp)
-    diff = SAE(block, temp)
+    diff = tools.SAE(block, temp)
     return temp, diff
 
 # 16x16 block's Mode 3 (plan) prediction mode
@@ -80,7 +72,7 @@ def mode3_16x16(block, H, V, P):
             temp[i,j] = (a + b*(i-7) + c*(j-7) + 16) / 32
 
     #print(temp)
-    diff = SAE(block, temp)
+    diff = tools.SAE(block, temp)
     return temp, diff
 
 def pickTheBestMode(block, H, V, P):
@@ -94,7 +86,7 @@ def pickTheBestMode(block, H, V, P):
 
     return list1[mode], mode
 
-def predictImage(im, step):
+def predictImage(im, qp):
     '''
     image intra predict
     : param im: input image
@@ -137,7 +129,7 @@ def predictImage(im, step):
             predict[i:(i+step),j:(j+step)], mode = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
             mode_map[i:(i+step),j:(j+step)].fill(mode)
 
-    diff = SAE(im, predict)
+    diff = tools.SAE(im, predict)
     print(diff)
 
     residual = im - predict
@@ -179,49 +171,53 @@ def predictImage(im, step):
     # np.savetxt("dct.csv", np.trunc(dct), delimiter=",", fmt='%.1f')
     # np.savetxt("dct_residual.csv", np.trunc(dct_residual), delimiter=",", fmt='%.1f')
 
-    qp_step = 1
     print("Image zlib size:")
-    im_1D = ZigZag.Compress(im, qp_step)
+    im_1D = ZigZag.Compress(im, qp)
     print(sys.getsizeof(im_1D))
 
     print("DCT zlib size:")
-    dct_1D = ZigZag.Compress(dct, qp_step)
+    dct_1D = ZigZag.Compress(dct, qp)
     print(sys.getsizeof(dct_1D))
 
     print("dct_residual zlib size:")
-    dct_res_1D = ZigZag.Compress(dct_residual, qp_step)
+    dct_res_1D = ZigZag.Compress(dct_residual, qp)
     print(sys.getsizeof(dct_res_1D))
 
-    temp = ZigZag.UnCompress(dct_1D, qp_step, imsize[0], imsize[1])
+    print("mode map zlib size:")
+    mode_1D = ZigZag.Compress(mode_map, 1)
+    print(sys.getsizeof(mode_1D))
 
-    print("diff")
-    print(dct-temp)
+    #return dct_1D   #temp test code
+    return dct_res_1D, mode_1D
 
-    return dct_1D   #temp test code
-    #return dct_res_1D
-
-def inversePrediction(binary, qp, m, n):
+def inversePrediction(binary, mode_1D, qp, m, n):
     '''
     Inverse the intra prediction process of a image
     : param binary: the binary data compressed by zlib
     : param step: the quantization step
     '''
-    dct =  ZigZag.UnCompress(binary, qp, m, n)
-    img = dct_formula_2D.Dct2ImgUsingScipy(dct, 16)
+    dct_residual =  ZigZag.UnCompress(binary, qp, m, n)
+    img = dct_formula_2D.Dct2ImgUsingScipy(dct_residual, 16)
+
+    mode_map =  ZigZag.UnCompress(mode_1D, 1, m, n)
 
     return img
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True)
 
-    qp = 10
+    qp = 15
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
     print(im.shape)
-    re = predictImage(im, qp)
+    residual_1D, mode_1D = predictImage(im, qp)
 
-    i_im = inversePrediction(re, qp, im.shape[0], im.shape[1])
+    i_im = inversePrediction(residual_1D, mode_1D, qp, im.shape[0], im.shape[1])
 
     plt.figure()
     plt.imshow(i_im, cmap='gray')
     plt.title("Inverse image")
+
+    print("Inverse Image PSNR:")
+    print(tools.psnr(im, i_im))
+
     plt.show()

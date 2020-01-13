@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import math
 from numpy import r_
+import tools
 
 def block2dct(a):
     return scipy.fftpack.dct( scipy.fftpack.dct( a, axis=0, norm='ortho' ), axis=1, norm='ortho' )
@@ -16,13 +17,6 @@ def dct2block(a):
 def normalization(data):
     _range = np.max(data) - np.min(data)
     return (data - np.min(data)) / _range
-
-def psnr(img1, img2):
-    mse = np.mean(np.square(img1 - img2))
-    if mse == 0:
-        return 100
-    PIXEL_MAX = 255.0
-    return 10 * math.log10(PIXEL_MAX**2 / mse)
 
 #show all the block in big image, with two margin within two block
 # U is 4D array, which is N*N matrix's basis pattern
@@ -120,7 +114,7 @@ def processCheck():
 
     # calculate DCT patterns by formula
     temp, S_i = dct_detail(S, N)
-    diff = psnr(S, np.round(S_i))
+    diff = tools.psnr(S, np.round(S_i))
     print("\nPSNR is: ", np.around(diff, 2))
 
     # check the coefficients by Scipy
@@ -196,7 +190,7 @@ def processWholeImage():
     plt.imshow( np.hstack( (im, img_dct) ) ,cmap='gray')
     plt.title("Comparison between original and DCT compressed images" )
 
-    diff = psnr(im, img_dct)
+    diff = tools.psnr(im, img_dct)
     print("\nPSNR is: ", np.around(diff, 2))
 
     plt.show()
