@@ -6,7 +6,7 @@ This library just do basic algorithm analysis and don't care about speed. The ai
 
 # Dependency
 
-[[https://github.com/slhck/h26x-extractor|h26x-extractor]]
+[h26x-extractor](https://github.com/slhck/h26x-extractor)
 
 '''bash
 pip3 install h26x-extractor
