@@ -8,13 +8,13 @@ This library just do basic algorithm analysis and don't care about speed. The ai
 
 [h26x-extractor](https://github.com/slhck/h26x-extractor)
 
-'''bash
+```bash
 pip3 install h26x-extractor
-'''
+```
 
 If we can't install h26x-extractor by the pip3 command, we can also download the package from Github and install it manually.
 
-'''bash
+```bash
 python setup.py install
-'''
+```
 
