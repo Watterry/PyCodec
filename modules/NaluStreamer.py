@@ -49,7 +49,7 @@ class NaluStreamer():
         self.stream.tofile(f)
         f.close()
 
-class SPSStreamer(NaluStreamer):
+class SpsStreamer(NaluStreamer):
     """
     Sequence Parameter Set class
     Based on 7.3.2.1 setion on page 31 & 7.4.2.1 setion on page 53
@@ -59,10 +59,6 @@ class SPSStreamer(NaluStreamer):
 
     def __init__(self, nalu_type):
         super().__init__(nalu_type)
-
-        # initializers
-        #self.offset_for_ref_frame = []
-        #self.seq_scaling_list_present_flag = []
 
         # use some default value
         self.profile_idc = '0x64'   # u(8)
@@ -106,11 +102,6 @@ class SPSStreamer(NaluStreamer):
         #     self.frame_crop_top_offset = self.s.read('ue')
         #     self.frame_crop_bottom_offset = self.s.read('ue')
         self.vui_parameters_present_flag = '0b0' #u(1)
-
-        # # TODO: parse VUI
-        # #self.rbsp_stop_one_bit         = self.s.read('uint:1')
-
-        # self.print_verbose()
 
     def set__level_idc(self, level_number):
         '''
@@ -271,9 +262,14 @@ class SPSStreamer(NaluStreamer):
 
         super().export(bitstream_outputfile)
 
+class PpsStreamer(NaluStreamer):
+
+    def __init__(self, nalu_type):
+        super().__init__(nalu_type)
+
 def main():
     f = "E:/temp/output/nalustreamer.264"
-    sps = SPSStreamer(nalutypes.NAL_UNIT_TYPE_SPS)
+    sps = SpsStreamer(nalutypes.NAL_UNIT_TYPE_SPS)
     sps.profile_idc = '0x42'
     sps.set__level_idc(3) # level 3
     sps.set__seq_parameter_set_id(0)
