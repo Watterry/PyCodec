@@ -7,6 +7,15 @@ from h26x_extractor import nalutypes
 START_CODE_PREFIX = '0x00000001'
 START_CODE_PREFIX_SHORT = "0x000001"
 
+def openNaluFile(bitstream_outputfile):
+    '''
+    Init Nalu File, which means clean all the old data in the file
+    '''
+    return open(bitstream_outputfile, 'wb')
+
+def closeNaluFile(bitstream_outputfile_handler):
+    bitstream_outputfile_handler.close()
+
 class NaluStreamer():
 
     def __init__(self, nalu_type):
@@ -39,15 +48,11 @@ class NaluStreamer():
         #print("length after plus:")
         #print(self.stream.length)
 
-    def export(self, bitstream_outputfile):
+    def export(self, bitstream_output_handler):
         """
         output the binary data into file
         """
-
-        #output to the file
-        f = open(bitstream_outputfile, 'wb')
-        self.stream.tofile(f)
-        f.close()
+        self.stream.tofile(bitstream_output_handler)
 
 class SpsStreamer(NaluStreamer):
     """
@@ -103,6 +108,13 @@ class SpsStreamer(NaluStreamer):
         #     self.frame_crop_bottom_offset = self.s.read('ue')
         self.vui_parameters_present_flag = '0b0' #u(1)
 
+    def set__profile_idc(self, profile_idc):
+        '''
+        set level_idc in SPS, foramt: u(8)
+        : param set_id: int number of set id, according to Table A-1 Level limits on page 207
+        '''
+        self.profile_idc = "0b" + "{0:08b}".format(profile_idc)
+
     def set__level_idc(self, level_number):
         '''
         set level_idc in SPS, foramt: u(8)
@@ -133,7 +145,7 @@ class SpsStreamer(NaluStreamer):
         '''
         s = BitArray(ue=value)
         self.pic_order_cnt_type = s
-        print(self.pic_order_cnt_type)
+
         if (value == 0):
             # log2_max_pic_order_cnt_lsb_minus4
             log2_max_pic_order_cnt_lsb_minus4 = 0   # todo, need to add specific data
@@ -236,7 +248,7 @@ class SpsStreamer(NaluStreamer):
         else:
             self.vui_parameters_present_flag = '0b0'
 
-    def export(self, bitstream_outputfile):
+    def export(self, bitstream_output_handler):
         """
         output the binary data into file
         The sequence here is very important, should be exact the same as SPECIFIC of H.264
@@ -260,17 +272,77 @@ class SpsStreamer(NaluStreamer):
         self.stream.append(self.vui_parameters_present_flag)
         super().rbsp_trailing_bits()
 
-        super().export(bitstream_outputfile)
+        super().export(bitstream_output_handler)
 
 class PpsStreamer(NaluStreamer):
-
+    """
+    Picture Parameter Set class
+    Based on 7.3.2.1 setion on page 31 & 7.4.2.2 setion on page 56
+    The sequence of set__ function is not important.
+    the function export() will take care of the sequence of the SODB.
+    """
     def __init__(self, nalu_type):
         super().__init__(nalu_type)
 
+        # use some default value
+        s = BitArray(ue=0)
+        self.pic_parameter_set_id = s   # ue(v)
+        self.seq_parameter_set_id = s # ue(v)
+        self.entropy_coding_mode_flag = '0b0' # u(1)
+        self.pic_order_present_flag = '0b0' # u(1)
+        self.num_slice_groups_minus1 = '0b0' #ue(v)
+        # TODO: subclause of num_slice_groups_minus1
+        # if (num_slice_groups_minus1>0)
+
+        s = BitArray(ue=9)
+        self.num_ref_idx_l0_active_minus1 = s # ue(v)
+        self.num_ref_idx_l1_active_minus1 = s # ue(v)
+
+        self.weighted_pred_flag = '0b0' # u(1)
+        self.weighted_bipred_idc = '0b00' # u(2)
+
+        s = BitArray(se=0)
+        self.pic_init_qp_minus26 = s   # se(v)
+        self.pic_init_qs_minus26 = s   # se(v)
+        self.chroma_qp_index_offset = s   # se(v)
+
+        self.deblocking_filter_control_present_flag = '0b0' # u(1)
+        self.constrained_intra_pred_flag = '0b0' # u(1)
+        self.redundant_pic_cnt_present_flag = '0b0' # u(1)
+
+    def export(self, bitstream_output_handler):
+        """
+        output the binary data into file
+        The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        """
+        self.stream.append(self.pic_parameter_set_id)
+        self.stream.append(self.seq_parameter_set_id)
+        self.stream.append(self.entropy_coding_mode_flag)
+        self.stream.append(self.pic_order_present_flag)
+        self.stream.append(self.num_slice_groups_minus1)
+        self.stream.append(self.num_ref_idx_l0_active_minus1)
+        self.stream.append(self.num_ref_idx_l1_active_minus1)
+        self.stream.append(self.weighted_pred_flag)
+        self.stream.append(self.weighted_bipred_idc)
+        self.stream.append(self.pic_init_qp_minus26)
+        self.stream.append(self.pic_init_qs_minus26)
+        self.stream.append(self.chroma_qp_index_offset)
+        self.stream.append(self.deblocking_filter_control_present_flag)
+        self.stream.append(self.constrained_intra_pred_flag)
+        self.stream.append(self.redundant_pic_cnt_present_flag)
+
+        super().rbsp_trailing_bits()
+
+        super().export(bitstream_output_handler)
+
 def main():
+    # step1, open the file
     f = "E:/temp/output/nalustreamer.264"
+    handler = openNaluFile(f)
+
+    # step2, generate sps & pps
     sps = SpsStreamer(nalutypes.NAL_UNIT_TYPE_SPS)
-    sps.profile_idc = '0x42'
+    sps.set__profile_idc(66) # Baseline profile
     sps.set__level_idc(3) # level 3
     sps.set__seq_parameter_set_id(0)
     sps.set__log2_max_frame_num_minus4(0)
@@ -283,8 +355,13 @@ def main():
     sps.set__direct_8x8_inference_flag(True)
     sps.set__frame_cropping_flag(False)
     sps.set__vui_parameters_present_flag(False)
-    
-    sps.export(f)
+    sps.export(handler)
+
+    pps = PpsStreamer(nalutypes.NAL_UNIT_TYPE_PPS)
+    pps.export(handler)
+
+    # step3, close the file
+    closeNaluFile(handler)
 
 if __name__ == '__main__':
     main()
