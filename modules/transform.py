@@ -91,7 +91,7 @@ def forwardTransformAndCoding4x4(X, QP):
 
     return Y
 
-def inverseTransformAndCoding4x4(Y, QP):
+def inverseTransformAndScaling4x4(Y, QP):
     '''
     Integer transform and quantization : 4 × 4 blocks
     The inverse integer transform processes for 4 × 4 blocks, 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     print("Forward transform and coding:")
     print(code)
 
-    back = inverseTransformAndCoding4x4(code, QP)
+    back = inverseTransformAndScaling4x4(code, QP)
     print("Inverse transform and coding:")
     print(back)
 
