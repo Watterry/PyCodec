@@ -131,7 +131,7 @@ if __name__ == "__main__":
     print(code)
 
     back = inverseTransformAndScaling4x4(code, QP)
-    print("Inverse transform and coding:")
+    print("Inverse transform and decoding:")
     print(back)
 
     # Use DCT to compare
