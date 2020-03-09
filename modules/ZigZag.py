@@ -116,12 +116,10 @@ def UnCompress(binary, QPstep, m, n):
 
     return matrix
 
-def testZigzag():
+def testZigzag(test):
     #test code for ZigZag
     zig = ZigzagMatrix()
-    test = np.array([[1, 2, 3, 4, 5, 6],
-                     [7, 8, 9, 10, 11, 12],
-                     [13, 14, 15, 16, 17, 18]])
+
     print("Test data:")
     print(test)
 
@@ -136,11 +134,8 @@ def testZigzag():
     print("check diff:")
     print(test-mat)  # the result should be zero
 
-def testZlibCompressWithZigzag():
+def testZlibCompressWithZigzag(test):
     # test for zlib with Zigzag
-    test = np.array([[1, 2, 3, 4, 5, 6],
-                     [7, 8, 9, 10, 11, 12],
-                     [13, 14, 15, 16, 17, 18]])
 
     print("Test data:")
     print(test)
@@ -153,7 +148,16 @@ def testZlibCompressWithZigzag():
 
 if __name__ == "__main__":
 
-    #testZigzag()
+    # test = np.array([[1, 2, 3, 4, 5, 6],
+    #                  [7, 8, 9, 10, 11, 12],
+    #                  [13, 14, 15, 16, 17, 18]])
 
-    testZlibCompressWithZigzag()
+    test = np.array([[1, 2, 3, 4],
+                     [5, 6, 7, 8],
+                     [9, 10, 11, 12],
+                     [13, 14, 15, 16]])
+
+    testZigzag(test)
+
+    #testZlibCompressWithZigzag(test)
 
