@@ -137,3 +137,5 @@ if __name__ == "__main__":
     # Use DCT to compare
     dct = np.round(dct_formula_2D.Img2DctUsingScipy(test, 4), 4)
     print(dct)
+    img_dct = dct_formula_2D.Dct2ImgUsingScipy(dct, 4)
+    print(img_dct)
