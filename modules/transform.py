@@ -2,6 +2,7 @@
 
 import numpy as np
 import dct_formula_2D
+import ZigZag
 import math
 
 Cf4 = np.array([[1, 1, 1, 1],
@@ -125,16 +126,24 @@ if __name__ == "__main__":
     print("Test data:")
     print(test)
 
+    # part1: use H.264 formula to transform
     QP = 6
     code = forwardTransformAndCoding4x4(test, QP)
     print("Forward transform and coding:")
     print(code)
 
+    #use Zigzag to scan
+    zig = ZigZag.ZigzagMatrix()
+    print("ZiaZag scan:")
+    res = zig.matrix2zig(code)
+    print(res)
+
+    #inverse transform
     back = inverseTransformAndScaling4x4(code, QP)
     print("Inverse transform and decoding:")
     print(back)
 
-    # Use DCT to compare
+    # Part2: Use DCT to compare
     dct = np.round(dct_formula_2D.Img2DctUsingScipy(test, 4), 4)
     print(dct)
     img_dct = dct_formula_2D.Dct2ImgUsingScipy(dct, 4)
