@@ -213,11 +213,13 @@ def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     : param block_step: the predict block size, the block should be step*step
     '''
     dct_residual =  ZigZag.UnCompress(binary, qp, m, n)
-    img = dct_formula_2D.Dct2ImgUsingScipy(dct_residual, block_step)
+    residual = dct_formula_2D.Dct2ImgUsingScipy(dct_residual, block_step)
 
     mode_map =  ZigZag.UnCompress(mode_1D, 1, m, n)
 
-    return img
+    # TODO: use residual and mode_map to reconstruct the original image
+
+    return residual
 
 if __name__ == "__main__":
     np.set_printoptions(suppress=True)
