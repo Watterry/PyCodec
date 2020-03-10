@@ -86,11 +86,11 @@ def pickTheBestMode(block, H, V, P):
 
     return list1[mode], mode
 
-def IntraPrediction(im, qp, step):
+def IntraPrediction(im, step):
     '''
     image intra predict
     : param im: input image
-    : param qp: quantization step size
+    : param step: macroblock's width
     : return: dct coefficient after quantization, zigzag, zlib compression
     '''
     imsize = im.shape
@@ -144,7 +144,7 @@ def predictImage(im, qp, block_step):
     '''
     
     step = block_step # 16x16 as block
-    predict, residual, mode_map = IntraPrediction(im, qp, block_step)
+    predict, residual, mode_map = IntraPrediction(im, block_step)
 
 
     plt.figure()
