@@ -23,14 +23,19 @@ class NaluStreamer():
         init the value of nalu unit
         : param nalu_type: something like NAL_UNIT_TYPE_CODED_SLICE_IDR in nalutypes.py
         '''
-        self.forbidden_zero_bit = '0b0'
-        self.nal_ref_idc = '0b11'
-        self.nal_unit_type = "0b" + "{0:05b}".format(nalu_type)
+        if (nalu_type != nalutypes.NAL_UNIT_TYPE_UNSPECIFIED):
+            # for specific nalutypes
+            self.forbidden_zero_bit = '0b0'
+            self.nal_ref_idc = '0b11'
+            self.nal_unit_type = "0b" + "{0:05b}".format(nalu_type)
 
-        self.stream = BitStream(START_CODE_PREFIX)
-        self.stream.append(self.forbidden_zero_bit)
-        self.stream.append(self.nal_ref_idc)
-        self.stream.append(self.nal_unit_type)
+            self.stream = BitStream(START_CODE_PREFIX)
+            self.stream.append(self.forbidden_zero_bit)
+            self.stream.append(self.nal_ref_idc)
+            self.stream.append(self.nal_unit_type)
+        else:
+            # for slice_data & macroblock_layer
+            self.stream = BitStream()
 
     def rbsp_trailing_bits(self):
         '''
@@ -337,7 +342,7 @@ class PpsStreamer(NaluStreamer):
 
 class SliceHeader(NaluStreamer):
     """
-    Slice write class
+    slice_header syntax class
     Based on 7.3.3 section on page 36 & 7.4.3 section on page 60
     @notice currently just support ONE SLICE frame
     The sequence of set__ function is not important.
@@ -386,6 +391,67 @@ class SliceHeader(NaluStreamer):
         self.stream.append(self.no_output_of_prior_pics_flag)
         self.stream.append(self.long_term_reference_flag)
         self.stream.append(self.slice_qp_delta)
+
+        super().rbsp_trailing_bits()
+
+        super().export(bitstream_output_handler)
+
+class MacroblockLayer(NaluStreamer):
+    """
+    macroblock_layer syntax class
+    Based on 7.3.5 section on page 41 & 7.4.5 section on page 70
+    @notice currently just support ONE SLICE frame
+    The sequence of set__ function is not important.
+    the function export() will take care of the sequence of the SODB.
+    : param mb_type: macroblock type
+    """
+    def __init__(self, mb_type):
+        super().__init__(nalutypes.NAL_UNIT_TYPE_UNSPECIFIED)
+
+        # use some default value
+        s = BitArray(ue=mb_type)
+        self.mb_type = s   # ue(v)
+
+        #current we just handle 16x16 mode
+        s = BitArray(se=0)
+        self.mb_qp_delta = s   # se(v)
+
+        #append residual()    
+
+    def export(self, bitstream_output_handler):
+        """
+        output the binary data into file
+        The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        """
+        self.stream.append(self.mb_type)
+
+        super().rbsp_trailing_bits()
+
+        super().export(bitstream_output_handler)
+
+class SliceData(NaluStreamer):
+    """
+    slice_data syntax class
+    Based on 7.3.4 section on page 40 & 7.4.4 section on page 69
+    @notice currently just support ONE SLICE frame
+    The sequence of set__ function is not important.
+    the function export() will take care of the sequence of the SODB.
+    """
+    def __init__(self, nalu_type):
+        super().__init__(nalu_type)
+
+        # use some default value
+        # TODO: add cabac_aligned_one_bit part
+
+        s = BitArray(ue=0)
+        self.first_mb_in_slice = s   # ue(v)
+
+    def export(self, bitstream_output_handler):
+        """
+        output the binary data into file
+        The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        """
+        self.stream.append(self.first_mb_in_slice)
 
         super().rbsp_trailing_bits()
 
