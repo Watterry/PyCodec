@@ -335,6 +335,62 @@ class PpsStreamer(NaluStreamer):
 
         super().export(bitstream_output_handler)
 
+class SliceHeader(NaluStreamer):
+    """
+    Slice write class
+    Based on 7.3.3 section on page 36 & 7.4.3 section on page 60
+    @notice currently just support ONE SLICE frame
+    The sequence of set__ function is not important.
+    the function export() will take care of the sequence of the SODB.
+    """
+    def __init__(self, nalu_type):
+        super().__init__(nalu_type)
+
+        # use some default value
+        s = BitArray(ue=0)
+        self.first_mb_in_slice = s   # ue(v)
+
+        self.nalu_type = nalu_type
+        s = BitArray(ue=nalu_type)
+        self.slice_type = s # ue(v)
+
+        s = BitArray(ue=0)
+        self.pic_parameter_set_id = s # ue(v)
+
+        self.frame_num = '0b0' # u(v)
+        self.idr_pic_id = s # ue(v)
+
+        self.pic_order_cnt_lsb = '0b0' # u(1)
+        self.no_output_of_prior_pics_flag = '0b0' # u(1)
+        self.long_term_reference_flag = '0b0' # u(1)
+
+        s = BitArray(se=6)
+        self.slice_qp_delta = s  #se(v)
+
+    def export(self, bitstream_output_handler):
+        """
+        output the binary data into file
+        The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        """
+        self.stream.append(self.first_mb_in_slice)
+        self.stream.append(self.slice_type)
+        self.stream.append(self.pic_parameter_set_id)
+        self.stream.append(self.frame_num)
+
+        #TODO: add frame_mbs_only_flag judgement
+
+        if (self.nalu_type==nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR):
+            self.stream.append(self.idr_pic_id)
+
+        self.stream.append(self.pic_order_cnt_lsb)
+        self.stream.append(self.no_output_of_prior_pics_flag)
+        self.stream.append(self.long_term_reference_flag)
+        self.stream.append(self.slice_qp_delta)
+
+        super().rbsp_trailing_bits()
+
+        super().export(bitstream_output_handler)
+
 def main():
     # step1, open the file
     f = "E:/temp/output/nalustreamer.264"
@@ -360,8 +416,15 @@ def main():
     pps = PpsStreamer(nalutypes.NAL_UNIT_TYPE_PPS)
     pps.export(handler)
 
-    # step3, close the file
+    # step3, write a key frame
+    frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)
+    frame.export(handler)
+
+    # step4, close the file
     closeNaluFile(handler)
 
+    #t = BitArray('0x88')
+
 if __name__ == '__main__':
+    # Test case for NaluStreamer
     main()
