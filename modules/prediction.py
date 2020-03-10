@@ -86,15 +86,13 @@ def pickTheBestMode(block, H, V, P):
 
     return list1[mode], mode
 
-def predictImage(im, qp):
+def IntraPrediction(im, qp, step):
     '''
     image intra predict
     : param im: input image
-    : param step: quantization step size
+    : param qp: quantization step size
     : return: dct coefficient after quantization, zigzag, zlib compression
     '''
-    
-    step = 16 # 16x16 as block
     imsize = im.shape
 
     predict = np.zeros(imsize)    # intra prediction result, motion compensation
@@ -133,6 +131,21 @@ def predictImage(im, qp):
     print(diff)
 
     residual = im - predict
+
+    return predict, residual, mode_map
+
+def predictImage(im, qp, block_step):
+    '''
+    image intra predict, transform, zigzag coding example
+    : param im: input image
+    : param qp: quantization step size
+    : param block_step: the predict block size, the block should be step*step
+    : return: dct coefficient after quantization, zigzag, zlib compression
+    '''
+    
+    step = block_step # 16x16 as block
+    predict, residual, mode_map = IntraPrediction(im, qp, block_step)
+
 
     plt.figure()
     plt.imshow(im, cmap='gray')
@@ -190,14 +203,17 @@ def predictImage(im, qp):
     #return dct_1D   #temp test code
     return dct_res_1D, mode_1D
 
-def inversePrediction(binary, mode_1D, qp, m, n):
+def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     '''
-    Inverse the intra prediction process of a image
+    Inverse image intra predict, transform, zigzag coding example
     : param binary: the binary data compressed by zlib
-    : param step: the quantization step
+    : param mode_1D: the predict mode map of image
+    : param qp: the quantization step
+    : param m,n: the size of image, m*n
+    : param block_step: the predict block size, the block should be step*step
     '''
     dct_residual =  ZigZag.UnCompress(binary, qp, m, n)
-    img = dct_formula_2D.Dct2ImgUsingScipy(dct_residual, 16)
+    img = dct_formula_2D.Dct2ImgUsingScipy(dct_residual, block_step)
 
     mode_map =  ZigZag.UnCompress(mode_1D, 1, m, n)
 
@@ -207,11 +223,12 @@ if __name__ == "__main__":
     np.set_printoptions(suppress=True)
 
     qp = 15
+    step = 16
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
     print(im.shape)
-    residual_1D, mode_1D = predictImage(im, qp)
+    residual_1D, mode_1D = predictImage(im, qp, step)
 
-    i_im = inversePrediction(residual_1D, mode_1D, qp, im.shape[0], im.shape[1])
+    i_im = inversePredictImage(residual_1D, mode_1D, qp, im.shape[0], im.shape[1], step)
 
     plt.figure()
     plt.imshow(i_im, cmap='gray')
