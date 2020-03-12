@@ -10,6 +10,7 @@ import numpy as np
 # table0: 2 <= nC < 4
 # table0: 4 <= nC < 8
 # table0: 8 <= nC
+# Notice: '0b' is the prefix for NaluStreamer.py
 coeff_token = np.array([
                         #talbe0
                         [['0b1'], # row = 0

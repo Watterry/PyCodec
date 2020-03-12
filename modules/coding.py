@@ -1,6 +1,8 @@
 # The coding and decoding of encoder
 import numpy as np
+from bitstring import BitStream, BitArray
 import ZigZag
+import vlc
 
 def getTotalCoeffs(block_1D):
     '''
@@ -13,6 +15,45 @@ def getTotalCoeffs(block_1D):
             total = total + 1
 
     return total
+
+def getT1s(block_1D):
+    '''
+    get the number of trailing +/−1 values (T1) in a macroblock
+    : param block: 1D array, that's Reordered macroblock which is 4x4 matrix
+    '''
+    total = 0
+    for x in block_1D:
+        if x==1:
+            total = total + 1
+        elif x == -1:
+            total = total + 1
+
+    if total > 3:
+        total = 3
+    return total
+
+def encodeT1s(block_1D, total):
+    '''
+    For each trailing +/−1 T1 signalled by coeff token, 
+    the sign is encoded with a single bit, 0 = +, 1 = −, 
+    in reverse order, starting with the highest-frequency T1.
+    : param block: 1D array, that's Reordered macroblock which is 4x4 matrix
+    : param total: the max number of T1 needed to encode, never more than 3
+    '''
+    enStr = '0b'
+    sum = 0
+    for x in block_1D[::-1]:
+        if x==1:
+            enStr = enStr + '0'
+            sum = sum + 1
+        elif x==-1:
+            enStr = enStr + '1'
+            sum = sum + 1
+        if (sum>=total):
+            break
+
+    print(enStr)
+    return enStr
 
 def getTotalZeros(block_1D):
     '''
@@ -55,10 +96,24 @@ if __name__ == "__main__":
     res = zig.matrix2zig(test)
     print(res)
 
-    #get TotalCoeffs
+    stream = BitStream()
+
+    #Step1: get TotalCoeffs& T1s
     totalCoeffs = getTotalCoeffs(res)
     print("TotalCoeffs: ", totalCoeffs)
+    t1s = getT1s(res)
+    print("T1s: ", t1s)
+    part1 = vlc.coeff_token[0][totalCoeffs][t1s]
+    print("coeff token:", part1)
+    stream.append(part1)
 
-    #get TotalZeros
+    #step2: Encode the sign of each T1
+    enT1 = encodeT1s(res, t1s)
+    stream.append(enT1)
+
+
+    #Step4: get TotalZeros
     totalZeros = getTotalZeros(res)
     print("TotalZeros: ", totalZeros)
+
+    print(stream)
