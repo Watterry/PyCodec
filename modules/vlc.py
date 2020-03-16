@@ -3,6 +3,7 @@
 
 import numpy as np
 
+#table 9-5
 # 4x16x4 matrix of table of coeff_taken
 # [nC][TotalCoeff][TrailingOnes]
 # nC varies from 0 ~ 3 according to Table 9-5 on page 159
@@ -37,6 +38,24 @@ coeff_token = np.array([
                          
                         ])
 
+#table 9-6
+level_prefix = np.array(['1',
+                         '01',
+                         '001',
+                         '0001',
+                         '00001',   #4
+                         '000001',
+                         '0000001',
+                         '00000001',
+                         '000000001', #8
+                         '0000000001',
+                         '00000000001',
+                         '000000000001',
+                         '0000000000001', #12
+                         '00000000000001', 
+                         '000000000000001',
+                         '0000000000000001'])
+
 if __name__ == "__main__":
     print(coeff_token.shape)
     print(coeff_token)
@@ -44,3 +63,5 @@ if __name__ == "__main__":
     print(coeff_token[0][2][1])
     print(coeff_token[0][8][1])
     print(type(coeff_token[0][0][0]))
+
+    print(level_prefix[2])

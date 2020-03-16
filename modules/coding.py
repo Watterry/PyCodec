@@ -39,20 +39,67 @@ def encodeT1s(block_1D, total):
     in reverse order, starting with the highest-frequency T1.
     : param block: 1D array, that's Reordered macroblock which is 4x4 matrix
     : param total: the max number of T1 needed to encode, never more than 3
+    Returns:
+        1. return encode str of T1s
+        2. return levels which needed to be encoded in next step
     '''
     enStr = '0b'
+    remains = np.array([], dtype=int)
+
     sum = 0
     for x in block_1D[::-1]:
-        if x==1:
-            enStr = enStr + '0'
-            sum = sum + 1
-        elif x==-1:
-            enStr = enStr + '1'
-            sum = sum + 1
-        if (sum>=total):
-            break
+        if (sum<total):
+            if x==1:
+                enStr = enStr + '0'
+                sum = sum + 1
+            elif x==-1:
+                enStr = enStr + '1'
+                sum = sum + 1
+        else:
+            #get remain non-zeros
+            if (x!=0):
+                remains = np.append(remains, x)
 
-    print(enStr)
+    #print(enStr)
+    #print(remains)
+    return enStr, remains
+
+def encodeLevels(remains_1D, suffixLength_init):
+    '''
+    Encode the levels of the remaining non-zero coefficients
+    The level, i.e. the sign and magnitude, of each remaining
+    non-zero coefficient in the block is encoded in reverse order,
+    Args:
+        remains_1D: remain no-zeros values after encode T1s in reverse order
+        suffixLength_init: suffixLength init value
+    '''
+    enStr = ''
+    suffixLength = int(suffixLength_init)
+
+    for level in remains_1D:
+        #print("level:", level)
+        levelCode = level
+        if (level>0):
+            levelCode = (level * 2) - 2
+        else:
+            levelCode = 0 - (level *2) - 1
+
+        #print("levelCode:", levelCode)
+
+        level_prefix = int(levelCode / (1 << suffixLength))
+        level_suffix = int(levelCode % (1 << suffixLength))
+
+        enStr = enStr + vlc.level_prefix[level_prefix]
+        if (suffixLength != 0):
+            enStr = enStr + bin(level_suffix).replace('0b','')
+
+        #update suffixleng
+        if (suffixLength == 0):
+            suffixLength = suffixLength + 1
+        elif (abs(level) > (3 << (suffixLength -1)) and suffixLength < 6):
+            suffixLength = suffixLength + 1
+
+    #print("encode Levels:", enStr)
     return enStr
 
 def getTotalZeros(block_1D):
@@ -108,9 +155,15 @@ if __name__ == "__main__":
     stream.append(part1)
 
     #step2: Encode the sign of each T1
-    enT1 = encodeT1s(res, t1s)
+    enT1, remains = encodeT1s(res, t1s)
     stream.append(enT1)
 
+    #step3: Encode the levels of the remaining non-zero coefficients
+    SuffixLength = 0  #default value
+    if totalCoeffs>10 and t1s<=1:
+        SuffixLength = 1
+    part3 = encodeLevels(remains, SuffixLength)
+    print("encode Levels:", part3)
 
     #Step4: get TotalZeros
     totalZeros = getTotalZeros(res)
