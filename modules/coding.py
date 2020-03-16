@@ -167,6 +167,7 @@ if __name__ == "__main__":
 
     #Step4: get TotalZeros
     totalZeros = getTotalZeros(res)
-    print("TotalZeros: ", totalZeros)
+    part4 = vlc.total_zeros[totalZeros][totalCoeffs]
+    print("TotalZeros: ", part4)
 
     print(stream)
