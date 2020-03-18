@@ -43,7 +43,7 @@ def encodeT1s(block_1D, total):
         1. return encode str of T1s
         2. return levels which needed to be encoded in next step
     '''
-    enStr = '0b'
+    enStr = ''
     remains = np.array([], dtype=int)
 
     sum = 0
@@ -64,34 +64,38 @@ def encodeT1s(block_1D, total):
     #print(remains)
     return enStr, remains
 
-def encodeLevels(remains_1D, suffixLength_init):
+def encodeLevels(remains_1D, totalCoeffs, t1s):
     '''
     Encode the levels of the remaining non-zero coefficients
     The level, i.e. the sign and magnitude, of each remaining
     non-zero coefficient in the block is encoded in reverse order,
     Args:
         remains_1D: remain no-zeros values after encode T1s in reverse order
-        suffixLength_init: suffixLength init value
+        totalCoeffs: the sum of non-zeros in original block matrix
+        t1s: the number of trailing +/−1 values (T1) in the macroblock
     '''
-    enStr = '0b'
-    suffixLength = int(suffixLength_init)
+    enStr = ''
+    suffixLength = 0  #default value
+    if totalCoeffs>10 and t1s<=1:
+        suffixLength = 1
 
-    for level in remains_1D:
-        #print("level:", level)
+    for x in remains_1D:
+        level = int(x)
         levelCode = level
         if (level>0):
-            levelCode = (level * 2) - 2
+            levelCode = (level<<1) - 2
         else:
-            levelCode = 0 - (level *2) - 1
-
-        #print("levelCode:", levelCode)
+            levelCode = 0 - (level<<1) - 1
 
         level_prefix = int(levelCode / (1 << suffixLength))
         level_suffix = int(levelCode % (1 << suffixLength))
 
-        enStr = enStr + vlc.level_prefix[level_prefix]
+        code = vlc.level_prefix[level_prefix]
         if (suffixLength != 0):
-            enStr = enStr + bin(level_suffix).replace('0b','')
+            code = code + bin(level_suffix).replace('0b','')
+
+        print("level %d, levelCode %d, levelPrefix %d, code %s" % (level, levelCode, level_prefix, code))
+        enStr = enStr + code
 
         #update suffixleng
         if (suffixLength == 0):
@@ -131,19 +135,21 @@ def getTotalZeros(block_1D):
 
     return total
 
-def encodeRunBefore(block_1D, totalZeros):
+def encodeRunBefore(block_1D, totalCoeffs, totalZeros):
     """
     Encode each run of zeros.
     The number of zeros preceding each non-zero coefficient (run before) is
     encoded in reverse order.
     Args:
         block_1D: 1D array, that's Reordered macroblock which is 4x4 matrix
+        totalCoeffs: the sum of non-zero coefficients in the block
         totalZeros: the sum of all zeros
     """
-    enStr = '0b'
+    enStr = ''
     [cols] = block_1D.shape
 
     total_runBefore = 0
+    total_coeff = totalCoeffs
 
     for i in range(cols-1, -1, -1):
         val = block_1D[i]
@@ -157,20 +163,19 @@ def encodeRunBefore(block_1D, totalZeros):
 
             runBefore = 0
             for y in range(i-1, -1, -1):
-                print("y %d i %d" % (y,i))
                 if block_1D[y]==0:
                     runBefore = runBefore+1
                 else:
                     break
 
             # stop condition 1: there are no more zeros left to encode
-            if total_runBefore== totalZeros:
+            if total_runBefore==totalZeros:
                 print("ZerosLeft = %d; run before = %d; no code required: no more zeros" % (zeroLeft, runBefore))
                 break
             total_runBefore = total_runBefore + runBefore
 
             # stop condition 2: the final or lowest frequency non-zero coefficient.
-            if i==0:
+            if i==0 or total_coeff==1:
                 print("ZerosLeft = %d; run before = %d; No code required: last coefficient." % (zeroLeft, runBefore))
                 break
 
@@ -179,6 +184,7 @@ def encodeRunBefore(block_1D, totalZeros):
 
             code = vlc.run_before[runBefore][zeroLeft]
             enStr = enStr + code
+            total_coeff = total_coeff - 1
             print("ZerosLeft = %d; run before = %d; code: %s" % (zeroLeft, runBefore, code))
 
     return enStr
@@ -197,8 +203,6 @@ def CAVLC(block):
     res = zig.matrix2zig(block)
     print(res)
 
-    stream = BitStream()
-
     #Step1: get TotalCoeffs& T1s
     totalCoeffs = getTotalCoeffs(res)
     print("TotalCoeffs: ", totalCoeffs)
@@ -206,44 +210,47 @@ def CAVLC(block):
     print("T1s: ", t1s)
     part1 = vlc.coeff_token[0][totalCoeffs][t1s]
     print("coeff token:", part1)
-    stream.append(part1)
 
     #step2: Encode the sign of each T1
     part2, remains = encodeT1s(res, t1s)
     print("T1 sign:", part2)
-    stream.append(part2)
 
     #step3: Encode the levels of the remaining non-zero coefficients
-    SuffixLength = 0  #default value
-    if totalCoeffs>10 and t1s<=1:
-        SuffixLength = 1
-    part3 = encodeLevels(remains, SuffixLength)
+    part3 = encodeLevels(remains, totalCoeffs, t1s)
     print("encode Levels:", part3)
-    stream.append(part3)
 
     #Step4: Encode the total number of zeros before the last coefficient
     totalZeros = getTotalZeros(res)
-    part4 = '0b' + vlc.total_zeros[totalZeros][totalCoeffs]
+    part4 = vlc.total_zeros[totalZeros][totalCoeffs]
     print("TotalZeros: ", totalZeros)
     print("encode TotalZeros: ", part4)
-    stream.append(part4)
 
     #step5: Encode each run of zeros
-    part5 = encodeRunBefore(res, totalZeros)
-    stream.append(part5)
+    part5 = encodeRunBefore(res, totalCoeffs, totalZeros)
+    
+    stream = BitStream()
+    temp = part1 + part2 + part3 + part4 + part5
+    stream.append(temp)
 
     print("CAVLC: ", stream.bin)
 
+    return stream
+
 if __name__ == "__main__":
-    # test = np.array([[0, 3, -1, 0],
-    #                  [0, -1, 1, 0],
-    #                  [1, 0, 0, 0],
+    test = np.array([[0, 3, -1, 0],
+                     [0, -1, 1, 0],
+                     [1, 0, 0, 0],
+                     [0, 0, 0, 0]])
+
+    # test = np.array([[-2, 4, 0, -1],
+    #                  [3, 0, 0, 0],
+    #                  [-3, 0, 0, 0],
     #                  [0, 0, 0, 0]])
 
-    test = np.array([[-2, 4, 0, -1],
-                     [3, 0, 0, 0],
-                     [-3, 0, 0, 0],
-                     [0, 0, 0, 0]])
+    # test = np.array([[0, 0, 1, 0],
+    #                  [0, 0, 0, 0],
+    #                  [1, 0, 0, 0],
+    #                  [-1, 0, 0, 0]])
 
     print("Test data:")
     print(test)
