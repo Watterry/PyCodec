@@ -118,3 +118,6 @@ if __name__ == "__main__":
 
     print(level_prefix[2])
     print(total_zeros[9][6])
+
+    print(total_zeros[0])
+    print(total_zeros[0][0])

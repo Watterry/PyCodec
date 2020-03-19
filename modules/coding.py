@@ -55,6 +55,8 @@ def encodeT1s(block_1D, total):
             elif x==-1:
                 enStr = enStr + '1'
                 sum = sum + 1
+            elif (x!=0):
+                remains = np.append(remains, x)
         else:
             #get remain non-zeros
             if (x!=0):
@@ -97,10 +99,10 @@ def encodeLevels(remains_1D, totalCoeffs, t1s):
         print("level %d, levelCode %d, levelPrefix %d, code %s" % (level, levelCode, level_prefix, code))
         enStr = enStr + code
 
-        #update suffixleng
+        #update suffixLength
         if (suffixLength == 0):
             suffixLength = suffixLength + 1
-        elif (abs(level) > (3 << (suffixLength -1)) and suffixLength < 6):
+        elif (abs(levelCode) > (3 << (suffixLength -1)) and suffixLength < 6):
             suffixLength = suffixLength + 1
 
     #print("encode Levels:", enStr)
@@ -208,7 +210,7 @@ def CAVLC(block):
     print("TotalCoeffs: ", totalCoeffs)
     t1s = getT1s(res)
     print("T1s: ", t1s)
-    part1 = vlc.coeff_token[0][totalCoeffs][t1s]
+    part1 = '0b' + vlc.coeff_token[0][totalCoeffs][t1s]
     print("coeff token:", part1)
 
     #step2: Encode the sign of each T1
@@ -221,8 +223,10 @@ def CAVLC(block):
 
     #Step4: Encode the total number of zeros before the last coefficient
     totalZeros = getTotalZeros(res)
-    part4 = vlc.total_zeros[totalZeros][totalCoeffs]
     print("TotalZeros: ", totalZeros)
+    part4 = ''
+    if ( totalCoeffs<block.size ):
+        part4 = vlc.total_zeros[totalZeros][totalCoeffs]
     print("encode TotalZeros: ", part4)
 
     #step5: Encode each run of zeros
@@ -251,6 +255,16 @@ if __name__ == "__main__":
     #                  [0, 0, 0, 0],
     #                  [1, 0, 0, 0],
     #                  [-1, 0, 0, 0]])
+
+    # test = np.array([[-12, 1, -10, -3],
+    #                  [0, 0, 0, 0],
+    #                  [0, 0, 0, 0],
+    #                  [0, 0, 0, 0]])
+
+    # test = np.array([[-1, -8, 8, -4],
+    #                  [1, -1, 1, 1],
+    #                  [4, -7, 5, -3],
+    #                  [-1, 2, -1, 2]])
 
     print("Test data:")
     print(test)
