@@ -78,7 +78,7 @@ def encodeLevels(remains_1D, totalCoeffs, t1s):
     '''
     enStr = ''
     suffixLength = 0  #default value
-    if totalCoeffs>10 and t1s<=1:
+    if totalCoeffs>10 and t1s<=3:
         suffixLength = 1
 
     for x in remains_1D:
@@ -92,18 +92,28 @@ def encodeLevels(remains_1D, totalCoeffs, t1s):
         level_prefix = int(levelCode / (1 << suffixLength))
         level_suffix = int(levelCode % (1 << suffixLength))
 
+        print("level %d, levelCode %d, levelPrefix %d, suffixLength %d" % (level, levelCode, level_prefix, suffixLength))
+ 
+        # TODO: when level_prefix larger than 15, what should I do?
+        if level_prefix>15:
+            level_prefix = 15
+
         code = vlc.level_prefix[level_prefix]
         if (suffixLength != 0):
-            code = code + bin(level_suffix).replace('0b','')
+            temp = bin(level_suffix).replace('0b','')
+            while len(temp) < suffixLength:
+                temp = '0' + temp
+            code = code + temp
 
-        print("level %d, levelCode %d, levelPrefix %d, code %s" % (level, levelCode, level_prefix, code))
+        print("code: ", code)
         enStr = enStr + code
 
         #update suffixLength
         if (suffixLength == 0):
             suffixLength = suffixLength + 1
-        elif (abs(levelCode) > (3 << (suffixLength -1)) and suffixLength < 6):
+        elif (levelCode > (3 << (suffixLength -1)) and suffixLength < 6):
             suffixLength = suffixLength + 1
+            print("levelCode %d suffixLength %d" % (levelCode, suffixLength))
 
     #print("encode Levels:", enStr)
     return enStr
@@ -208,6 +218,11 @@ def CAVLC(block):
     #Step1: get TotalCoeffs& T1s
     totalCoeffs = getTotalCoeffs(res)
     print("TotalCoeffs: ", totalCoeffs)
+    if (totalCoeffs==0):
+        NoFurther = BitStream('0b0')
+        print("CAVLC: ", NoFurther.bin)
+        return NoFurther
+
     t1s = getT1s(res)
     print("T1s: ", t1s)
     part1 = '0b' + vlc.coeff_token[0][totalCoeffs][t1s]
@@ -241,10 +256,10 @@ def CAVLC(block):
     return stream
 
 if __name__ == "__main__":
-    test = np.array([[0, 3, -1, 0],
-                     [0, -1, 1, 0],
-                     [1, 0, 0, 0],
-                     [0, 0, 0, 0]])
+    # test = np.array([[0, 3, -1, 0],
+    #                  [0, -1, 1, 0],
+    #                  [1, 0, 0, 0],
+    #                  [0, 0, 0, 0]])
 
     # test = np.array([[-2, 4, 0, -1],
     #                  [3, 0, 0, 0],
@@ -265,6 +280,11 @@ if __name__ == "__main__":
     #                  [1, -1, 1, 1],
     #                  [4, -7, 5, -3],
     #                  [-1, 2, -1, 2]])
+
+    test = np.array([[-78, 4, 9, 2],
+                     [3, -6, 1, -1],
+                     [2, 1, 0, -1],
+                     [2, 0, 0, 1]])
 
     print("Test data:")
     print(test)
