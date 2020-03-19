@@ -38,7 +38,7 @@ def encoding16x16(block):
             print("current block:")
             print(current)
 
-            temp = tf.forwardTransformAndCoding4x4(current, QP)
+            temp = tf.forwardTransformAndScaling4x4(current, QP)
             print("coefficients:")
             print(temp)
             cd.CAVLC(temp)

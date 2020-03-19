@@ -69,7 +69,7 @@ def getVi4ByQP(qp):
 
     return Vi4
 
-def forwardTransformAndCoding4x4(X, QP):
+def forwardTransformAndScaling4x4(X, QP):
     '''
     Integer transform and quantization : 4 × 4 blocks
     The forward integer transform processes for 4 × 4 blocks, 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     # part1: use H.264 formula to transform
     QP = 6
-    code = forwardTransformAndCoding4x4(test, QP)
+    code = forwardTransformAndScaling4x4(test, QP)
     print("Forward transform and coding:")
     print(code)
 
