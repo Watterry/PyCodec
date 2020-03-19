@@ -14,6 +14,7 @@ def encoding16x16(block):
     
     Returns:
     """
+    QP = 6
 
     # step1: Get the DC element of each 4x4 block
     size = block.shape
@@ -22,15 +23,15 @@ def encoding16x16(block):
     DC_block = np.full((4,4), 0)
     for i in r_[:size[0]:step]:
         for j in r_[:size[1]:step]:
-            x = i/4
-            y = j/4
+            x = int(i/4)
+            y = int(j/4)
             DC_block[x][y] = block[i, j]
     
     # DC transorm coding
+    tf.forwardHadamardAndScaling4x4(DC_block, QP)
 
     # step2: 4x4 transform, quantization and coding
     current = np.full((4,4), 0)
-    QP = 6
     for i in r_[:size[0]:step]:
         for j in r_[:size[1]:step]:
 
@@ -62,8 +63,8 @@ def H264Encode(im):
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
 
-                block16x16 = residual[i:(i+step), j:(j+step)]
-                encoding16x16(block16x16)
+            block16x16 = residual[i:(i+step), j:(j+step)]
+            encoding16x16(block16x16)
 
 
 if __name__ == '__main__':

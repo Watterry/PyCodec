@@ -31,6 +31,12 @@ Vtb = np.array([[10, 16, 13],
                 [16, 25, 20],
                 [18, 29, 23]])
 
+# Hadamard transform matrix
+HWd = np.array([[1, 1, 1, 1],
+                [1, 1, -1, -1],
+                [1, -1, -1, 1],
+                [1, -1, 1, -1]])
+
 def getMf4ByQP(qp):
     '''
     get Mf4 matrix by QP value
@@ -117,6 +123,28 @@ def inverseTransformAndScaling4x4(Y, QP):
     #print(X)
 
     return X
+
+def forwardHadamardAndScaling4x4(X, QP):
+    """
+    Integer Hadamard transform and quantization : 4 × 4 blocks
+    The forward integer Hadamard transform processes for 4 × 4 blocks, 
+    accroding to 7.28 formula on page 203
+    Args:
+        X: input data block, currently should be 4x4 square
+        QP: the qp step
+    """
+    #step1: Calculate 4 × 4 Hadamard transform
+    temp = np.dot(HWd, X)
+    temp = np.dot(temp, HWd) / 2
+
+    # step2: Scaling and quantization
+    Mf4 = getMf4ByQP(QP)
+    #print(Mf4)
+
+    scaler = math.pow(2, 15+math.floor(QP/6))
+    Y = np.round(temp * Mf4 / scaler, 0)
+
+    return Y
 
 if __name__ == "__main__":
     test = np.array([[58, 64, 51, 58],
