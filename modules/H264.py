@@ -5,6 +5,7 @@ import numpy as np
 from numpy import r_
 import transform as tf
 import coding as cd
+from bitstring import BitStream, BitArray
 
 def encoding16x16(block):
     """
@@ -13,25 +14,16 @@ def encoding16x16(block):
         block: 16x16 matrix block
     
     Returns:
+        encoding of current macroblock
     """
     QP = 6
-
-    # step1: Get the DC element of each 4x4 block
     size = block.shape
     step = 4
 
-    DC_block = np.full((4,4), 0)
-    for i in r_[:size[0]:step]:
-        for j in r_[:size[1]:step]:
-            x = int(i/4)
-            y = int(j/4)
-            DC_block[x][y] = block[i, j]
-    
-    # DC transorm coding
-    tf.forwardHadamardAndScaling4x4(DC_block, QP)
+    result = BitStream()
 
-    # step2: 4x4 transform, quantization and coding
-    current = np.full((4,4), 0)
+    # step1: 4x4 transform, quantization and coding
+    current = np.full((step, step), 0)
     for i in r_[:size[0]:step]:
         for j in r_[:size[1]:step]:
 
@@ -42,10 +34,25 @@ def encoding16x16(block):
             temp = tf.forwardTransformAndScaling4x4(current, QP)
             print("coefficients:")
             print(temp)
-            cd.CAVLC(temp)
+            ac_code = cd.CAVLC(temp)
+            result.append(ac_code)
 
+    # step2: Get the DC element of each 4x4 block
+    DC_block = np.full((step, step), 0)
+    for i in r_[:size[0]:step]:
+        for j in r_[:size[1]:step]:
+            x = int(i/step)
+            y = int(j/step)
+            DC_block[x][y] = block[i, j]
+    
+    # DC transorm coding
+    dc_trans = tf.forwardHadamardAndScaling4x4(DC_block, QP)
+    dc_code = cd.CAVLC(dc_trans)
+    result.append(dc_code)
 
-def H264Encode(im):
+    return result
+
+def encode(im):
     """
     The core process of H264 encoding
     Args:
@@ -58,16 +65,20 @@ def H264Encode(im):
     predict, residual, mode_map = prediction.IntraPrediction(im, 16)  # 16x16 intra mode
 
     #according to page 133 Figure 8-6
+    layer = BitStream()
     step = 16
     imsize = residual.shape
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
 
             block16x16 = residual[i:(i+step), j:(j+step)]
-            encoding16x16(block16x16)
+            macro = encoding16x16(block16x16)
 
+            layer.append(macro)
+
+    return layer
 
 if __name__ == '__main__':
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
-    H264Encode(im)
+    encode(im)
     

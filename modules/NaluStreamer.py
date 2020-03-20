@@ -3,6 +3,8 @@
 
 from bitstring import BitStream, BitArray
 from h26x_extractor import nalutypes
+import H264
+import matplotlib.pyplot as plt
 
 START_CODE_PREFIX = '0x00000001'
 START_CODE_PREFIX_SHORT = "0x000001"
@@ -412,11 +414,13 @@ class MacroblockLayer(NaluStreamer):
         s = BitArray(ue=mb_type)
         self.mb_type = s   # ue(v)
 
-        #current we just handle 16x16 mode
         s = BitArray(se=0)
         self.mb_qp_delta = s   # se(v)
 
-        #append residual()    
+        #append residual() 
+
+    def set__residual(self, residual):
+        self.residual = residual
 
     def export(self, bitstream_output_handler):
         """
@@ -424,6 +428,9 @@ class MacroblockLayer(NaluStreamer):
         The sequence here is very important, should be exact the same as SPECIFIC of H.264
         """
         self.stream.append(self.mb_type)
+        #current we just handle 16x16 mode
+        self.stream.append(self.mb_qp_delta)
+        self.stream.append(self.residual)
 
         super().rbsp_trailing_bits()
 
@@ -486,7 +493,15 @@ def main():
     frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)
     frame.export(handler)
 
-    # step4, close the file
+    # step4, write slice & macroblock data
+    I_16x16_2_0_1 = 15   #temp code, TODO: should add some basic prediction type in nalutypes
+    mb = MacroblockLayer(I_16x16_2_0_1)
+    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
+    residual = H264.encode(im)   # currently we just support 16x16 prediction
+    mb.set__residual(residual)
+    mb.export(handler)
+
+    # step5, close the file
     closeNaluFile(handler)
 
     #t = BitArray('0x88')
