@@ -428,6 +428,37 @@ class SliceHeader(NaluStreamer):
         self.stream.append(self.slice_alpha_c0_offset_div2)
         self.stream.append(self.slice_beta_offset_div2)
 
+        #super().rbsp_trailing_bits()
+
+        super().export(bitstream_output_handler)
+
+class SliceData(NaluStreamer):
+    """
+    slice_data syntax class
+    Based on 7.3.4 section on page 40 & 7.4.4 section on page 69
+    @notice currently just support ONE SLICE frame
+    The sequence of set__ function is not important.
+    the function export() will take care of the sequence of the SODB.
+    """
+    def __init__(self):
+        super().__init__(nalutypes.NAL_UNIT_TYPE_UNSPECIFIED)
+
+        # use some default value
+        # TODO: add cabac_aligned_one_bit part
+
+        #s = BitArray(ue=0)
+        #self.first_mb_in_slice = s   # ue(v)
+
+    def set__macroblock_layer(self, macroblock_layer):
+        self.macroblock_layer = macroblock_layer
+
+    def export(self, bitstream_output_handler):
+        """
+        output the binary data into file
+        The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        """
+        self.stream.append(self.macroblock_layer)
+
         super().rbsp_trailing_bits()
 
         super().export(bitstream_output_handler)
@@ -466,39 +497,14 @@ class MacroblockLayer(NaluStreamer):
         self.stream.append(self.mb_qp_delta)
         self.stream.append(self.residual)
 
-        super().rbsp_trailing_bits()
-
-        super().export(bitstream_output_handler)
-
-class SliceData(NaluStreamer):
-    """
-    slice_data syntax class
-    Based on 7.3.4 section on page 40 & 7.4.4 section on page 69
-    @notice currently just support ONE SLICE frame
-    The sequence of set__ function is not important.
-    the function export() will take care of the sequence of the SODB.
-    """
-    def __init__(self, nalu_type):
-        super().__init__(nalu_type)
-
-        # use some default value
-        # TODO: add cabac_aligned_one_bit part
-
-        s = BitArray(ue=0)
-        self.first_mb_in_slice = s   # ue(v)
-
-    def export(self, bitstream_output_handler):
-        """
-        output the binary data into file
-        The sequence here is very important, should be exact the same as SPECIFIC of H.264
-        """
-        self.stream.append(self.first_mb_in_slice)
-
-        super().rbsp_trailing_bits()
+        #super().rbsp_trailing_bits()
 
         super().export(bitstream_output_handler)
 
 def main():
+    """
+    basic unit test code
+    """
     # step1, open the file
     f = "E:/temp/output/nalustreamer.264"
     handler = openNaluFile(f)
