@@ -96,7 +96,7 @@ class SpsStreamer(NaluStreamer):
         #         # TODO: have to implement this, otherwise it will fail
         #         raise NotImplementedError("Scaling matrix decoding is not implemented.")
 
-        self.log2_max_frame_num_minus4 = '0b1' #ue(v)
+        self.log2_max_frame_num_minus4 = '0b0' #ue(v)
         self.pic_order_cnt_type = '0b1' #ue(v)
 
         self.num_ref_frames = '0b1' #ue(v)
@@ -144,6 +144,13 @@ class SpsStreamer(NaluStreamer):
         '''
         s = BitArray(ue=value)
         self.log2_max_frame_num_minus4 = s
+
+    def get__log2_max_frame_num_minus4(self):
+        """
+        Get and decode log2_max_frame_num_minus4 from sps
+        """
+        temp = self.log2_max_frame_num_minus4.ue
+        return temp
 
     def set__pic_order_cnt_type(self, value):
         '''
@@ -297,7 +304,8 @@ class PpsStreamer(NaluStreamer):
         self.seq_parameter_set_id = s # ue(v)
         self.entropy_coding_mode_flag = '0b0' # u(1)
         self.pic_order_present_flag = '0b0' # u(1)
-        self.num_slice_groups_minus1 = '0b0' #ue(v)
+
+        self.num_slice_groups_minus1 = s #ue(v)
         # TODO: subclause of num_slice_groups_minus1
         # if (num_slice_groups_minus1>0)
 
@@ -357,8 +365,7 @@ class SliceHeader(NaluStreamer):
         s = BitArray(ue=0)
         self.first_mb_in_slice = s   # ue(v)
 
-        self.nalu_type = nalu_type
-        s = BitArray(ue=nalu_type)
+        s = BitArray(ue=2)
         self.slice_type = s # ue(v)
 
         s = BitArray(ue=0)
@@ -367,12 +374,34 @@ class SliceHeader(NaluStreamer):
         self.frame_num = '0b0' # u(v)
         self.idr_pic_id = s # ue(v)
 
-        self.pic_order_cnt_lsb = '0b0' # u(1)
+        #self.pic_order_cnt_lsb = '0b0' # u(1)
         self.no_output_of_prior_pics_flag = '0b0' # u(1)
         self.long_term_reference_flag = '0b0' # u(1)
 
         s = BitArray(se=6)
         self.slice_qp_delta = s  #se(v)
+
+        s = BitArray(ue=0)
+        self.disable_deblocking_filter_idc = s #ue(v)
+        
+        s = BitArray(se=0)
+        self.slice_alpha_c0_offset_div2 = s
+        self.slice_beta_offset_div2 = s
+    
+    def set__frame_num(self, sps_log2_minus4, frameNum):
+        """
+        set frame_num field in slice header
+        the length of bits should be log2_max_frame_num_minus4+4 bits
+        Args:
+            sps_log2_minus4: the value of sps log2_max_frame_num_minus4
+            frameNum: the frame num of current slice
+        """
+        bit_length = sps_log2_minus4 + 4
+        
+        temp = bin(frameNum).replace('0b','')
+        while len(temp) < bit_length:
+            temp = '0' + temp
+        self.frame_num = '0b' + temp
 
     def export(self, bitstream_output_handler):
         """
@@ -386,13 +415,18 @@ class SliceHeader(NaluStreamer):
 
         #TODO: add frame_mbs_only_flag judgement
 
-        if (self.nalu_type==nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR):
-            self.stream.append(self.idr_pic_id)
+        #if (self.nalu_type==nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR):
+        self.stream.append(self.idr_pic_id)
 
-        self.stream.append(self.pic_order_cnt_lsb)
+        #self.stream.append(self.pic_order_cnt_lsb)
         self.stream.append(self.no_output_of_prior_pics_flag)
         self.stream.append(self.long_term_reference_flag)
         self.stream.append(self.slice_qp_delta)
+
+        # should be some judgement here
+        self.stream.append(self.disable_deblocking_filter_idc)
+        self.stream.append(self.slice_alpha_c0_offset_div2)
+        self.stream.append(self.slice_beta_offset_div2)
 
         super().rbsp_trailing_bits()
 
@@ -476,7 +510,7 @@ def main():
     sps.set__seq_parameter_set_id(0)
     sps.set__log2_max_frame_num_minus4(0)
     sps.set__pic_order_cnt_type(0)
-    sps.set__num_ref_frames(10)
+    sps.set__num_ref_frames(2)
     sps.set__gaps_in_frame_num_value_allowed_flag(False)
     sps.set__pic_width_in_mbs_minus_1(512)
     sps.set__pic_height_in_map_units_minus1(512)
@@ -490,7 +524,11 @@ def main():
     pps.export(handler)
 
     # step3, write a key frame
-    frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)
+    frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)  # TODO: slice type shoud be defined
+    print(sps.log2_max_frame_num_minus4)
+    temp = sps.get__log2_max_frame_num_minus4()
+    frame.set__frame_num(temp, 0)
+    
     frame.export(handler)
 
     # step4, write slice & macroblock data
