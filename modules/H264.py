@@ -77,10 +77,12 @@ def encode(im):
             macro = encoding16x16(block16x16)
 
             I_16x16_2_0_1 = 15   #temp code, TODO: should add some basic prediction type in nalutypes
-            mb = ns.MacroblockLayer(I_16x16_2_0_1)
-            mb.set__residual(residual)
+            mb = ns.MacroblockLayer(I_16x16_2_0_1) #temp code, TODO: should use mode_map to reflect right predict mode
+            mb.set__mb_pred(0) #temp code, should input right parameter of intra_chroma_pred_mode
+            mb.set__residual(macro)
+            temp = mb.gen()
 
-            totalMacro.append(macro)
+            totalMacro.append(temp)
 
     return totalMacro
 
@@ -98,7 +100,7 @@ def main():
     sps.set__level_idc(3) # level 3
     sps.set__seq_parameter_set_id(0)
     sps.set__log2_max_frame_num_minus4(0)
-    sps.set__pic_order_cnt_type(0)
+    sps.set__pic_order_cnt_type(2)
     sps.set__num_ref_frames(2)
     sps.set__gaps_in_frame_num_value_allowed_flag(False)
     sps.set__pic_width_in_mbs_minus_1(512)
@@ -110,21 +112,24 @@ def main():
     sps.export(handler)
 
     pps = ns.PpsStreamer(nalutypes.NAL_UNIT_TYPE_PPS)
+    pps.set__deblocking_filter_control_present_flag(True)
+    pps.set__pic_init_qp_minus26(-3)
     pps.export(handler)
 
     # step3, write a key frame
-    frame = ns.SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)  # TODO: slice type shoud be defined
+    frame = ns.SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR, 7)  # TODO: slice type shoud be defined
     print(sps.log2_max_frame_num_minus4)
     temp = sps.get__log2_max_frame_num_minus4()
     frame.set__frame_num(temp, 0)
     
-    frame.export(handler)
+    frame.export(handler, pps)
 
     # step4, write slice data
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
     residual = encode(im)   # currently we just support 16x16 prediction
-    code = ns.SliceData()
-    code.set__macroblock_layer(residual)
+    coding = ns.SliceData()
+    coding.set__macroblock_layer(residual)
+    coding.export(handler)
 
     # step5, close the file
     ns.closeNaluFile(handler)

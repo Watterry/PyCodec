@@ -36,7 +36,7 @@ class NaluStreamer():
             self.stream.append(self.nal_ref_idc)
             self.stream.append(self.nal_unit_type)
         else:
-            # for slice_data & macroblock_layer
+            # for slice_data
             self.stream = BitStream()
 
     def rbsp_trailing_bits(self):
@@ -325,6 +325,17 @@ class PpsStreamer(NaluStreamer):
         self.constrained_intra_pred_flag = '0b0' # u(1)
         self.redundant_pic_cnt_present_flag = '0b0' # u(1)
 
+    def set__pic_init_qp_minus26(self, qp_minus26):
+        s = BitArray(se=qp_minus26)
+        self.pic_init_qp_minus26 = s   # se(v)
+
+    def set__deblocking_filter_control_present_flag(self, bool_value):
+        if bool_value:
+            self.deblocking_filter_control_present_flag = '0b1'
+        else:
+            self.deblocking_filter_control_present_flag = '0b0'
+
+
     def export(self, bitstream_output_handler):
         """
         output the binary data into file
@@ -358,14 +369,14 @@ class SliceHeader(NaluStreamer):
     The sequence of set__ function is not important.
     the function export() will take care of the sequence of the SODB.
     """
-    def __init__(self, nalu_type):
+    def __init__(self, nalu_type, slice_type):
         super().__init__(nalu_type)
 
         # use some default value
         s = BitArray(ue=0)
         self.first_mb_in_slice = s   # ue(v)
 
-        s = BitArray(ue=2)
+        s = BitArray(ue=slice_type)
         self.slice_type = s # ue(v)
 
         s = BitArray(ue=0)
@@ -374,11 +385,11 @@ class SliceHeader(NaluStreamer):
         self.frame_num = '0b0' # u(v)
         self.idr_pic_id = s # ue(v)
 
-        #self.pic_order_cnt_lsb = '0b0' # u(1)
+        self.pic_order_cnt_lsb = '0b0' # u(1)
         self.no_output_of_prior_pics_flag = '0b0' # u(1)
         self.long_term_reference_flag = '0b0' # u(1)
 
-        s = BitArray(se=6)
+        s = BitArray(se=-3)
         self.slice_qp_delta = s  #se(v)
 
         s = BitArray(ue=0)
@@ -403,10 +414,13 @@ class SliceHeader(NaluStreamer):
             temp = '0' + temp
         self.frame_num = '0b' + temp
 
-    def export(self, bitstream_output_handler):
+    def export(self, bitstream_output_handler, PPS):
         """
         output the binary data into file
         The sequence here is very important, should be exact the same as SPECIFIC of H.264
+        Args:
+            bitstream_output_handler: output binary file handler
+            PPS: the sequence PPS set
         """
         self.stream.append(self.first_mb_in_slice)
         self.stream.append(self.slice_type)
@@ -418,15 +432,17 @@ class SliceHeader(NaluStreamer):
         #if (self.nalu_type==nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR):
         self.stream.append(self.idr_pic_id)
 
-        #self.stream.append(self.pic_order_cnt_lsb)
+        #self.stream.append(self.pic_order_cnt_lsb)   # TODO: should adjust this value according to SPS
         self.stream.append(self.no_output_of_prior_pics_flag)
         self.stream.append(self.long_term_reference_flag)
         self.stream.append(self.slice_qp_delta)
 
         # should be some judgement here
-        self.stream.append(self.disable_deblocking_filter_idc)
-        self.stream.append(self.slice_alpha_c0_offset_div2)
-        self.stream.append(self.slice_beta_offset_div2)
+        if (PPS.deblocking_filter_control_present_flag):
+            self.stream.append(self.disable_deblocking_filter_idc)
+            if self.disable_deblocking_filter_idc != 1 :
+                self.stream.append(self.slice_alpha_c0_offset_div2)
+                self.stream.append(self.slice_beta_offset_div2)
 
         #super().rbsp_trailing_bits()
 
@@ -463,7 +479,7 @@ class SliceData(NaluStreamer):
 
         super().export(bitstream_output_handler)
 
-class MacroblockLayer(NaluStreamer):
+class MacroblockLayer():
     """
     macroblock_layer syntax class
     Based on 7.3.5 section on page 41 & 7.4.5 section on page 70
@@ -473,8 +489,6 @@ class MacroblockLayer(NaluStreamer):
     : param mb_type: macroblock type
     """
     def __init__(self, mb_type):
-        super().__init__(nalutypes.NAL_UNIT_TYPE_UNSPECIFIED)
-
         # use some default value
         s = BitArray(ue=mb_type)
         self.mb_type = s   # ue(v)
@@ -482,24 +496,28 @@ class MacroblockLayer(NaluStreamer):
         s = BitArray(se=0)
         self.mb_qp_delta = s   # se(v)
 
-        #append residual() 
+    def set__mb_pred(self, intra_chroma_pred_mode):
+        #TODO: should use a independent function to generate mb_pred
+        s = BitArray(ue=intra_chroma_pred_mode)
+        self.mb_pred = s
 
     def set__residual(self, residual):
         self.residual = residual
 
-    def export(self, bitstream_output_handler):
+    def gen(self):
         """
-        output the binary data into file
+        generate the binary data of this macroblock
         The sequence here is very important, should be exact the same as SPECIFIC of H.264
         """
-        self.stream.append(self.mb_type)
+        stream = BitStream()
+
+        stream.append(self.mb_type)
         #current we just handle 16x16 mode
-        self.stream.append(self.mb_qp_delta)
-        self.stream.append(self.residual)
+        stream.append(self.mb_pred)
+        stream.append(self.mb_qp_delta)
+        stream.append(self.residual)
 
-        #super().rbsp_trailing_bits()
-
-        super().export(bitstream_output_handler)
+        return stream
 
 def main():
     """
