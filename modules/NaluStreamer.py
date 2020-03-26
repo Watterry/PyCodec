@@ -444,8 +444,6 @@ class SliceHeader(NaluStreamer):
                 self.stream.append(self.slice_alpha_c0_offset_div2)
                 self.stream.append(self.slice_beta_offset_div2)
 
-        #super().rbsp_trailing_bits()
-
         super().export(bitstream_output_handler)
 
 class SliceData(NaluStreamer):
