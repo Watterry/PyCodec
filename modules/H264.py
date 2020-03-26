@@ -8,6 +8,7 @@ import coding as cd
 from bitstring import BitStream, BitArray
 import NaluStreamer as ns
 from h26x_extractor import nalutypes
+import logging
 
 def encoding16x16(block, QP):
     """
@@ -30,12 +31,12 @@ def encoding16x16(block, QP):
         for j in r_[:size[1]:step]:
 
             current = block[i:(i+step), j:(j+step)]
-            print("current block:")
-            print(current)
+            logging.debug("current block:")
+            logging.debug(current)
 
             temp = tf.forwardTransformAndScaling4x4(current, QP)
-            print("coefficients:")
-            print(temp)
+            logging.debug("coefficients:")
+            logging.debug(temp)
             ac_code = cd.CAVLC(temp)
             result.append(ac_code)
 
@@ -138,5 +139,6 @@ def main():
     ns.closeNaluFile(handler)
 
 if __name__ == '__main__':
+    logging.basicConfig(filename='H264.log', filemode='w', level=logging.DEBUG)
     main()
     
