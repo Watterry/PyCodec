@@ -9,7 +9,7 @@ screenLevels = 255.0
 def yuv_import(filename, dims, numfrm, startfrm):  
     fp = open(filename,'rb')  
     blk_size = int(prod(dims) * 3 / 2)  
-    fp.seek(blk_size*startfrm,0)  
+    fp.seek( blk_size*startfrm, 0)  
 
     Y = []
     U = []
@@ -17,8 +17,8 @@ def yuv_import(filename, dims, numfrm, startfrm):
     logging.debug("Y width: %d", dims[0])
     logging.debug("Y height: %d", dims[1])
 
-    d00=dims[0]//2
-    d01=dims[1]//2
+    d00 = dims[0]//2
+    d01 = dims[1]//2
     logging.debug("UV width: %d", d00)
     logging.debug("VV width: %d", d01)
 
