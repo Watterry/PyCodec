@@ -139,6 +139,14 @@ def main():
     ns.closeNaluFile(handler)
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='H264.log', filemode='w', level=logging.DEBUG)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("H264.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
     main()
     

@@ -3,6 +3,7 @@ import numpy as np
 from bitstring import BitStream, BitArray
 import ZigZag
 import vlc
+import logging
 
 def getTotalCoeffs(block_1D):
     '''
@@ -251,11 +252,20 @@ def CAVLC(block):
     temp = part1 + part2 + part3 + part4 + part5
     stream.append(temp)
 
-    print("CAVLC: ", stream.bin)
+    logging.debug("CAVLC: %s", stream.bin)
 
     return stream
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("coding.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
     # test = np.array([[0, 3, -1, 0],
     #                  [0, -1, 1, 0],
     #                  [1, 0, 0, 0],
