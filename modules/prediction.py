@@ -95,19 +95,21 @@ def IntraPrediction(im, step):
     '''
     imsize = im.shape
 
-    predict = np.zeros(imsize)    # intra prediction result, motion compensation
-    mode_map = np.zeros(imsize)    # save block mode information
+    predict = np.zeros(imsize, int)    # intra prediction result, motion compensation
+    mode_map = np.zeros(imsize, int)    # save block mode information
+
+    # init value
+    H = im[0, 0:(0+step)]
+    V = im[0:(0+step), 0]
+    P = 128
 
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
-            H = np.zeros((step, 1))
-            V = np.zeros((1, step))
-            P = 0   # the value of left top conner of pixel
 
             if (i==0) and (j==0):  # for left-top block, just copy the data
-                H = im[i,j:(j+step)]
-                V = im[i:(i+step),j]
-                P = im[0, 0]
+                H[:] = 128
+                V[:] = 128
+                P = 128
 
             elif i==0 and j!=0:
                 H = im[i,j:(j+step)]
