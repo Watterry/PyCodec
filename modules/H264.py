@@ -118,7 +118,6 @@ def main():
 
     # step3, write a key frame
     frame = ns.SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR, 7)  # TODO: slice type shoud be defined
-    print(sps.log2_max_frame_num_minus4)
     temp = sps.get__log2_max_frame_num_minus4()
     slice_qp = 20
     qp_base = pps.get__pic_init_qp_minus26()

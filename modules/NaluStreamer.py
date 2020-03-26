@@ -503,9 +503,13 @@ class MacroblockLayer():
         # use some default value
         s = BitArray(ue=mb_type)
         self.mb_type = s   # ue(v)
+   
+        self.mb_pred = ''
 
         s = BitArray(se=0)
         self.mb_qp_delta = s   # se(v)
+
+        self.residual = ''
 
     def set__mb_pred(self, intra_chroma_pred_mode):
         #TODO: should use a independent function to generate mb_pred
@@ -559,20 +563,16 @@ def main():
     pps.export(handler)
 
     # step3, write a key frame
-    frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR)  # TODO: slice type shoud be defined
-    print(sps.log2_max_frame_num_minus4)
+    frame = SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR, 7)  # TODO: slice type shoud be defined
     temp = sps.get__log2_max_frame_num_minus4()
     frame.set__frame_num(temp, 0)
     
-    frame.export(handler)
+    frame.export(handler, pps)
 
     # step4, write slice & macroblock data
     I_16x16_2_0_1 = 15   #temp code, TODO: should add some basic prediction type in nalutypes
     mb = MacroblockLayer(I_16x16_2_0_1)
-    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
-    residual = H264.encode(im)   # currently we just support 16x16 prediction
-    mb.set__residual(residual)
-    mb.export(handler)
+    mb.gen()
 
     # step5, close the file
     closeNaluFile(handler)
