@@ -9,16 +9,16 @@ from bitstring import BitStream, BitArray
 import NaluStreamer as ns
 from h26x_extractor import nalutypes
 
-def encoding16x16(block):
+def encoding16x16(block, QP):
     """
     Encode a 16x16 macroblock
     Args:
         block: 16x16 matrix block
+        QP: the QP value of quantization
     
     Returns:
         encoding of current macroblock
     """
-    QP = 6
     size = block.shape
     step = 4
 
@@ -54,7 +54,7 @@ def encoding16x16(block):
 
     return result
 
-def encode(im):
+def encode(im, QP):
     """
     The core process of H264 encoding
     Args:
@@ -74,7 +74,7 @@ def encode(im):
         for j in r_[:imsize[1]:step]:
 
             block16x16 = residual[i:(i+step), j:(j+step)]
-            macro = encoding16x16(block16x16)
+            macro = encoding16x16(block16x16, QP)
 
             I_16x16_2_0_1 = 15   #temp code, TODO: should add some basic prediction type in nalutypes
             mb = ns.MacroblockLayer(I_16x16_2_0_1) #temp code, TODO: should use mode_map to reflect right predict mode
@@ -120,13 +120,17 @@ def main():
     frame = ns.SliceHeader(nalutypes.NAL_UNIT_TYPE_CODED_SLICE_IDR, 7)  # TODO: slice type shoud be defined
     print(sps.log2_max_frame_num_minus4)
     temp = sps.get__log2_max_frame_num_minus4()
+    slice_qp = 20
+    qp_base = pps.get__pic_init_qp_minus26()
+    qp_delta = slice_qp - 26 - qp_base
+    frame.set__slice_qp_delta(qp_delta)
     frame.set__frame_num(temp, 0)
     
     frame.export(handler, pps)
 
     # step4, write slice data
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
-    residual = encode(im)   # currently we just support 16x16 prediction
+    residual = encode(im, slice_qp)   # currently we just support 16x16 prediction
     coding = ns.SliceData()
     coding.set__macroblock_layer(residual)
     coding.export(handler)

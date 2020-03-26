@@ -329,6 +329,10 @@ class PpsStreamer(NaluStreamer):
         s = BitArray(se=qp_minus26)
         self.pic_init_qp_minus26 = s   # se(v)
 
+    def get__pic_init_qp_minus26(self):
+        temp = self.pic_init_qp_minus26.se
+        return temp
+
     def set__deblocking_filter_control_present_flag(self, bool_value):
         if bool_value:
             self.deblocking_filter_control_present_flag = '0b1'
@@ -413,6 +417,15 @@ class SliceHeader(NaluStreamer):
         while len(temp) < bit_length:
             temp = '0' + temp
         self.frame_num = '0b' + temp
+
+    def set__slice_qp_delta(self, qp_delta):
+        """
+        set slice_qp_delta field in slice header
+        Args:
+            qp_delta: the int value of field slice_qp_delta
+        """
+        s = BitArray(se=qp_delta)
+        self.slice_qp_delta = s  #se(v) 
 
     def export(self, bitstream_output_handler, PPS):
         """
