@@ -254,6 +254,13 @@ def CAVLC(block):
 
     logging.debug("CAVLC: %s", stream.bin)
 
+    # supplement zero at the end of stream, so we can print the hex code of the stream
+    output_str = stream
+    addon = 8 - len(stream.bin) % 8
+    for i in range(0, addon):
+        output_str.append('0b0')
+    logging.debug("CAVLC hex: %s", output_str.hex)
+
     return stream
 
 if __name__ == "__main__":
