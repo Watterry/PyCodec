@@ -235,6 +235,7 @@ if __name__ == "__main__":
             logging.StreamHandler(),
         ]
     )
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
     np.set_printoptions(suppress=True)
 
@@ -250,7 +251,7 @@ if __name__ == "__main__":
     plt.imshow(i_im, cmap='gray')
     plt.title("Inverse image")
 
-    print("Inverse Image PSNR:")
-    print(tools.psnr(im, i_im))
+    logging.debug("Inverse Image PSNR:")
+    logging.debug(tools.psnr(im, i_im))
 
     plt.show()
