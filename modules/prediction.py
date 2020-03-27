@@ -6,6 +6,7 @@ import sys
 import ZigZag
 import tools
 import logging
+import copy
 
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
@@ -208,6 +209,67 @@ def predictImage(im, qp, block_step):
     #return dct_1D   #temp test code
     return dct_res_1D, mode_1D
 
+def inverseIntraPrediction(residual, mode_map, step):
+    """
+    image intra predict inverse operation
+
+    Args:
+        residual: residual image after coefficient inverse operation
+        mode_map: the prediction mode map of residual image
+        step: macroblock's width
+    
+    Returns:
+        the recovered original image
+    """
+    imsize = residual.shape
+    predict = np.zeros(imsize, int)    # intra prediction result, motion compensation
+
+    # init value
+    H = predict[0, 0:(0+step)].copy()
+    V = predict[0:(0+step), 0].copy()
+    P = 128
+
+    for i in r_[:imsize[0]:step]:
+        for j in r_[:imsize[1]:step]:
+
+            if (i==0) and (j==0):  # for left-top block, just copy the data
+                H[:] = 128
+                V[:] = 128
+                P = 128
+
+            elif i==0 and j!=0:
+                H[:] = 128   # should set to predict[i, j-1] ??
+                V = predict[i:(i+step),j-1]
+                P = predict[i, j-1]
+                
+            elif j==0 and i!=0:
+                H = predict[i-1,j:(j+step)]
+                V[:] = 128   # should set to predict[i-1, j] ??
+                P = predict[i-1, j]
+
+            else:
+                H = predict[i-1,j:(j+step)]
+                V = predict[i:(i+step),j-1]
+                P = predict[i-1, j-1]
+
+            #get mode and generate predction image
+            temp = copy.deepcopy(predict[i:(i+step),j:(j+step)])
+            block = copy.deepcopy(predict[i:(i+step),j:(j+step)])
+            if mode_map[i+1, j+1] == 0:
+                block, diff = mode0_16x16(temp, H)
+            elif mode_map[i+1, j+1] == 1:
+                block, diff = mode1_16x16(temp, V)
+            elif mode_map[i+1, j+1] == 2:
+                block, diff = mode2_16x16(temp, H, V)
+            elif mode_map[i+1, j+1] == 3:
+                block, diff = mode3_16x16(temp, H, V, P)
+            else:
+                logging.error("Predict Mode Error!")
+
+            predict[i:(i+step),j:(j+step)] = residual[i:(i+step),j:(j+step)] + block
+
+    return predict
+
 def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     '''
     Inverse image intra predict, transform, zigzag coding example
@@ -223,8 +285,9 @@ def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     mode_map =  ZigZag.UnCompress(mode_1D, 1, m, n)
 
     # TODO: use residual and mode_map to reconstruct the original image
+    original = inverseIntraPrediction(residual, mode_map, block_step)
 
-    return residual
+    return original
 
 if __name__ == "__main__":
     logging.basicConfig(
