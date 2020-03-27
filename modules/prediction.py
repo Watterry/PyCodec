@@ -238,13 +238,13 @@ def inverseIntraPrediction(residual, mode_map, step):
                 P = 128
 
             elif i==0 and j!=0:
-                H[:] = 128   # should set to predict[i, j-1] ??
+                H[:] = predict[i, j-1]
                 V = predict[i:(i+step),j-1]
                 P = predict[i, j-1]
                 
             elif j==0 and i!=0:
                 H = predict[i-1,j:(j+step)]
-                V[:] = 128   # should set to predict[i-1, j] ??
+                V[:] = predict[i-1, j]
                 P = predict[i-1, j]
 
             else:
