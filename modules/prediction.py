@@ -5,6 +5,7 @@ import dct_formula_2D
 import sys
 import ZigZag
 import tools
+import logging
 
 # 16x16 block's Mode 0 (vertical) prediction mode
 def mode0_16x16(block, H):
@@ -99,8 +100,9 @@ def IntraPrediction(im, step):
     mode_map = np.zeros(imsize, int)    # save block mode information
 
     # init value
-    H = im[0, 0:(0+step)]
-    V = im[0:(0+step), 0]
+    H = im[0, 0:(0+step)].copy()
+    V = im[0:(0+step), 0].copy()
+
     P = 128
 
     for i in r_[:imsize[0]:step]:
@@ -126,7 +128,8 @@ def IntraPrediction(im, step):
                 V = im[i:(i+step),j-1]
                 P = im[i-1, j-1]
 
-            predict[i:(i+step),j:(j+step)], mode = pickTheBestMode(im[i:(i+step),j:(j+step)], H, V, P)
+            block = im[i:(i+step),j:(j+step)].copy()
+            predict[i:(i+step),j:(j+step)], mode = pickTheBestMode(block, H, V, P)
             mode_map[i:(i+step),j:(j+step)].fill(mode)
 
     diff = tools.SAE(im, predict)
@@ -224,6 +227,15 @@ def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     return residual
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("prediction.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
     np.set_printoptions(suppress=True)
 
     qp = 15
