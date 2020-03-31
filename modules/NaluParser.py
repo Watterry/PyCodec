@@ -29,8 +29,8 @@ class SpsParser():
         logging.info("  constraint_set1_flag: %s", "true" if self.constraint_set1_flag else "false")
         logging.info("  constraint_set2_flag: %s", "true" if self.constraint_set2_flag else "false")
 
-        self.reserved_zero_2bits = stream.read(5).bin    # u(1)
-        self.level_idc = stream.read(5).uint # u(5)
+        self.reserved_zero_2bits = stream.read(5).bin    # u(5)
+        self.level_idc = stream.read(8).uint # u(8)
         self.seq_parameter_set_id = stream.read(1).ue  #ue(v)
 
         logging.info("  level_idc: %d", self.level_idc)

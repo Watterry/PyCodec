@@ -79,7 +79,7 @@ class SpsStreamer(NaluStreamer):
         self.constraint_set2_flag = '0b0' # u(1)
 
         self.reserved_zero_2bits = '0b00000' # u(5)
-        self.level_idc = '0b00001' # u(5)
+        self.level_idc = '0b00000001' # u(8)
         self.seq_parameter_set_id = '0b0' #ue(v)
 
         # if ((self.profile_idc == 100) or (self.profile_idc == 110) or (self.profile_idc == 122) or (self.profile_idc == 144)):
