@@ -9,6 +9,7 @@ from bitstring import BitStream, BitArray
 import NaluStreamer as ns
 from h26x_extractor import nalutypes
 import logging
+import yuv
 
 def encoding16x16(block, QP):
     """
@@ -31,7 +32,7 @@ def encoding16x16(block, QP):
         for j in r_[:size[1]:step]:
 
             current = block[i:(i+step), j:(j+step)]
-            logging.debug("current block:")
+            logging.debug("4x4 block row %d column %d, pixel value:", i, j)
             logging.debug(current)
 
             temp = tf.forwardTransformAndScaling4x4(current, QP)
@@ -49,6 +50,7 @@ def encoding16x16(block, QP):
             DC_block[x][y] = block[i, j]
     
     # DC transorm coding
+    logging.debug("16x16 block's DC transorm coding")
     dc_trans = tf.forwardHadamardAndScaling4x4(DC_block, QP)
     dc_code = cd.CAVLC(dc_trans)
     result.append(dc_code)
@@ -74,6 +76,8 @@ def encode(im, QP):
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
 
+            logging.debug("16x16 block index row %d, column %d", i, j)
+
             block16x16 = residual[i:(i+step), j:(j+step)]
             macro = encoding16x16(block16x16, QP)
 
@@ -84,6 +88,9 @@ def encode(im, QP):
             temp = mb.gen()
 
             totalMacro.append(temp)
+
+            logging.debug("16x16 block macroblock: %s", temp.bin)
+            logging.debug("-----------------------------------------")
 
     return totalMacro
 
@@ -130,6 +137,12 @@ def main():
 
     # step4, write slice data
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
+    # width = 512
+    # height = 512
+    # yuv_data = yuv.yuv_import('lena2.yuv', (height, width), 1, 0)
+    # im = yuv_data[0][0]
+    logging.debug(im)
+
     residual = encode(im, slice_qp)   # currently we just support 16x16 prediction
     coding = ns.SliceData()
     coding.set__macroblock_layer(residual)
