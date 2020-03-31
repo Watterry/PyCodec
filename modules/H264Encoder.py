@@ -156,7 +156,7 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler("H264.log", mode='w'),
+            logging.FileHandler("H264Encoder.log", mode='w'),
             logging.StreamHandler(),
         ]
     )
