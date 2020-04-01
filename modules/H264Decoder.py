@@ -25,6 +25,9 @@ def main(h264file):
 
     sps_parser = SpsParser()
     sps_parser.parse(sps)
+
+    pps_parser = PpsParser()
+    pps_parser.parse(pps)
     
 
 if __name__ == '__main__':

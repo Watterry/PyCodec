@@ -94,6 +94,70 @@ class SpsParser():
     def vui_parameters(self):
         logging.error("vui_parameters is not work right now!")
 
+class PpsParser():
+    """
+    pps parser, get all the element value of pps
+    """
+    def parse(self, ppsNalu):
+        """
+        Parse pps binary data, the input data should not include 0x00000001 start code
+        Args:
+            ppsNalu: BitStream data: 1. input sps data without 0x00000001 start code
+                                     2. the input data is rbsp_trailing_bits
+        """
+        logging.info("pic_parameter_set_rbsp()")
+        logging.info("{")
+        
+        stream = ppsNalu
+
+        self.pic_parameter_set_id = stream.read('ue') #ue(v)
+        self.seq_parameter_set_id = stream.read('ue') #ue(v)
+        self.entropy_coding_mode_flag = stream.read(1).uint
+        self.pic_order_present_flag = stream.read(1).uint
+        logging.info("  pic_parameter_set_id: %d", self.pic_parameter_set_id)
+        logging.info("  seq_parameter_set_id: %d", self.seq_parameter_set_id)
+        logging.info("  entropy_coding_mode_flag: %s", "true" if self.entropy_coding_mode_flag else "false")
+        logging.info("  pic_order_present_flag: %s", "true" if self.pic_order_present_flag else "false")
+
+        self.num_slice_groups_minus1 = stream.read('ue') #ue(v)
+        logging.info("  num_slice_groups_minus1: %d", self.num_slice_groups_minus1)
+
+        if self.num_slice_groups_minus1 > 0:
+            self.slice_group_map_type = stream.read('ue')
+            # TODO: add more branch here
+
+        self.num_ref_idx_l0_active_minus1 = stream.read('ue') #ue(v)
+        logging.info("  num_ref_idx_l0_active_minus1: %d", self.num_ref_idx_l0_active_minus1)
+
+        self.num_ref_idx_l1_active_minus1 = stream.read('ue') #ue(v)
+        logging.info("  num_ref_idx_l1_active_minus1: %d", self.num_ref_idx_l1_active_minus1)
+
+        self.weighted_pred_flag = stream.read(1).uint
+        logging.info("  weighted_pred_flag: %s", "true" if self.weighted_pred_flag else "false")
+
+        self.weighted_bipred_idc = stream.read(2).uint
+        logging.info("  weighted_bipred_idc: %d", self.weighted_bipred_idc)
+
+        self.pic_init_qp_minus26 = stream.read('se') #se(v)
+        logging.info("  pic_init_qp_minus26: %d", self.pic_init_qp_minus26)
+
+        self.pic_init_qs_minus26  = stream.read('se') #se(v)
+        logging.info("  pic_init_qs_minus26: %d", self.pic_init_qs_minus26)
+
+        self.chroma_qp_index_offset  = stream.read('se') #se(v)
+        logging.info("  chroma_qp_index_offset: %d", self.chroma_qp_index_offset)
+
+        self.deblocking_filter_control_present_flag = stream.read(1).uint
+        logging.info("  deblocking_filter_control_present_flag: %s", "true" if self.deblocking_filter_control_present_flag else "false")
+
+        self.constrained_intra_pred_flag = stream.read(1).uint
+        logging.info("  constrained_intra_pred_flag: %s", "true" if self.constrained_intra_pred_flag else "false")
+
+        self.redundant_pic_cnt_present_flag = stream.read(1).uint
+        logging.info("  redundant_pic_cnt_present_flag: %s", "true" if self.redundant_pic_cnt_present_flag else "false")
+
+        logging.info("}")
+
 if __name__ == '__main__':
     # Test case for NaluStreamer
     logging.debug("Unit test for NaluParser")
