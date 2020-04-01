@@ -1,5 +1,6 @@
 import logging
 from bitstring import BitStream, BitArray
+import H264Types
 
 #class NaluResolver():
 #    def __init__(self):
@@ -157,6 +158,87 @@ class PpsParser():
         logging.info("  redundant_pic_cnt_present_flag: %s", "true" if self.redundant_pic_cnt_present_flag else "false")
 
         logging.info("}")
+
+class NalParser():
+    """
+    Slice parser, get all the element value of nalu
+    Currently just support one keyframe input
+    """
+    def parse(self, NaluUnit, SPS, PPS):
+        """
+        Parse nalu binary data, the input data should not include 0x00000001 start code
+        Args:
+            NaluUnit: BitStream data: 1. input sps data without 0x00000001 start code
+                                      2. the input data is rbsp_trailing_bits
+            spsParser: the sps of current sequence, should be type of SpsParser
+            ppsParser: the pps of curretn sequence, should be type of PpsParser
+        """
+        logging.info("slice_header()")
+        logging.info("{")
+        
+        stream = NaluUnit
+
+        self.first_mb_in_slice = stream.read('ue') #ue(v)
+        logging.info("  first_mb_in_slice: %d", self.first_mb_in_slice)
+
+        self.slice_type = stream.read('ue') #ue(v)
+        logging.info("  slice_type: %s", H264Types.slice_type(self.slice_type))
+
+        self.pic_parameter_set_id = stream.read('ue') #ue(v)
+        logging.info("  pic_parameter_set_id: %d", self.pic_parameter_set_id)
+
+        length = SPS.log2_max_frame_num_minus4 + 4
+        self.frame_num = stream.read(length).uint
+        logging.info("  frame_num: %d", self.frame_num)
+
+        if not SPS.frame_mbs_only_flag:
+            self.field_pic_flag = stream.read(1).uint
+            logging.info("  field_pic_flag: %d", self.field_pic_flag)
+            if self.field_pic_flag:
+                self.bottom_field_flag = stream.read(1).uint
+                logging.info("  bottom_field_flag: %d", self.bottom_field_flag)
+
+        nal_unit_type = 5   #TODO: nal_unit_type should passed in by outside or parse by self??
+        if nal_unit_type == 5:
+            self.idr_pic_id = stream.read('ue') #ue(v)
+            logging.info("  idr_pic_id: %d", self.idr_pic_id)
+
+        #TODO: add a lot of parse process here
+
+        nal_ref_idc = 0   #TODO: nal_ref_idc should passed in by outside or parse by self??
+        if not nal_ref_idc:
+            if nal_unit_type == 5:
+                self.no_output_of_prior_pics_flag = stream.read(1).uint
+                self.long_term_reference_flag = stream.read(1).uint
+                logging.info("  no_output_of_prior_pics_flag: %s", "true" if self.no_output_of_prior_pics_flag else "false")
+                logging.info("  long_term_reference_flag: %s", "true" if self.long_term_reference_flag else "false")
+            else:
+                self.adaptive_ref_pic_marking_mode_flag = stream.read(1).uint
+                #TODO add more process here
+
+        # if PPS.entropy_coding_mode_flag and (self.slice_type!=H264Types.slice_type('I') or self.slice_type!=H264Types.slice_type('I7'))
+        #    and (self.slice_type!=H264Types.slice_type('SI') or self.slice_type!=H264Types.slice_type('SI9')):
+        if PPS.entropy_coding_mode_flag:
+           self.cabac_init_idc = stream.read('ue') #ue(v)
+           logging.info("  cabac_init_idc: %d", self.cabac_init_idc)
+
+        self.slice_qp_delta = stream.read('se') #se(v)
+        logging.info("  slice_qp_delta: %d", self.slice_qp_delta)
+
+        if PPS.deblocking_filter_control_present_flag:
+            self.disable_deblocking_filter_idc = stream.read('ue') #ue(v)
+            logging.info("  disable_deblocking_filter_idc: %d", self.disable_deblocking_filter_idc)
+            if self.disable_deblocking_filter_idc != 1:
+                self.slice_alpha_c0_offset_div2 = stream.read('se') #se(v)
+                logging.info("  slice_alpha_c0_offset_div2: %d", self.slice_alpha_c0_offset_div2)
+
+                self.slice_beta_offset_div2 = stream.read('se') #se(v)
+                logging.info("  slice_beta_offset_div2: %d", self.slice_beta_offset_div2)
+        
+        logging.info("}")
+
+        #slice data
+        logging.debug("slice data: %s", stream.peek(32))   # check the start data of slice_data
 
 if __name__ == '__main__':
     # Test case for NaluStreamer
