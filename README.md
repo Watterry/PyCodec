@@ -21,3 +21,6 @@ If we can't install h26x-extractor by the pip3 command, we can also download the
 python3 setup.py install
 ```
 
+# Reference
+1. The whole code is based on the document of ITU-T Recommendation H.264 05/2003 edition, which I will call H.264 standard in my comment.
+2. Most test data is from Richardson's book: *The H.264 Advanced Video Compression Standard, Second Edition*.
