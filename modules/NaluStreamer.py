@@ -3,7 +3,6 @@
 
 from bitstring import BitStream, BitArray
 from h26x_extractor import nalutypes
-import H264
 import matplotlib.pyplot as plt
 
 START_CODE_PREFIX = '0x00000001'
