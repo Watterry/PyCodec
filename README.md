@@ -5,6 +5,7 @@ This library just do basic algorithm analysis and don't care about speed. The ai
 
 If you are interesting in any module of video coding standards, you can request the part to me and I will find some time to realize it.
 
+There is another advantage using Python to do theoretic research. It is very convenient to do unit test in seperate file.
 
 # Dependency
 
