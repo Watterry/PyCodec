@@ -11,6 +11,52 @@ from h26x_extractor import nalutypes
 import logging
 import yuv
 
+def encoding16x16UV(QP):
+    """
+    Encode a 8x8 U、V block
+    Args:
+        QP: the QP value of quantization
+    
+    Returns:
+        encoding of current U、V macroblock
+    """
+    block = np.full((8, 8), 0)   # set all UV to zero，TODO：pass in real UV value
+
+    step = 4
+    result = BitStream()
+    size = block.shape
+
+    # step1: Get the DC element of each 4x4 block
+    DC_block = np.full((step, step), 0)
+    for i in r_[:size[0]:step]:
+        for j in r_[:size[1]:step]:
+            x = int(i/step)
+            y = int(j/step)
+            DC_block[x][y] = block[i, j]
+
+    # DC transorm coding
+    logging.debug("8x8 UV block's DC transorm coding")
+    dc_trans = tf.forwardHadamardAndScaling4x4(DC_block, QP)
+    dc_code = cd.CAVLC(dc_trans)
+    result.append(dc_code)
+
+    # step2: 4x4 transform, quantization and coding
+    current = np.full((step, step), 0)
+    for i in r_[:size[0]:step]:
+        for j in r_[:size[1]:step]:
+
+            current = block[i:(i+step), j:(j+step)]
+            logging.debug("4x4 UV block row %d column %d, pixel value:", i, j)
+            logging.debug(current)
+
+            temp = tf.forwardTransformAndScaling4x4(current, QP)
+            logging.debug("coefficients:")
+            logging.debug(temp)
+            ac_code = cd.CAVLC(temp)
+            result.append(ac_code)
+
+    return result
+
 def encoding16x16(block, QP):
     """
     Encode a 16x16 macroblock
@@ -26,34 +72,45 @@ def encoding16x16(block, QP):
 
     result = BitStream()
 
-    # step1: 4x4 transform, quantization and coding
-    current = np.full((step, step), 0)
-    for i in r_[:size[0]:step]:
-        for j in r_[:size[1]:step]:
-
-            current = block[i:(i+step), j:(j+step)]
-            logging.debug("4x4 block row %d column %d, pixel value:", i, j)
-            logging.debug(current)
-
-            temp = tf.forwardTransformAndScaling4x4(current, QP)
-            logging.debug("coefficients:")
-            logging.debug(temp)
-            ac_code = cd.CAVLC(temp)
-            result.append(ac_code)
-
-    # step2: Get the DC element of each 4x4 block
+    # step1: Get the DC element of each 4x4 block
     DC_block = np.full((step, step), 0)
     for i in r_[:size[0]:step]:
         for j in r_[:size[1]:step]:
             x = int(i/step)
             y = int(j/step)
             DC_block[x][y] = block[i, j]
-    
+
     # DC transorm coding
     logging.debug("16x16 block's DC transorm coding")
     dc_trans = tf.forwardHadamardAndScaling4x4(DC_block, QP)
     dc_code = cd.CAVLC(dc_trans)
     result.append(dc_code)
+
+    # step2: 4x4 transform, quantization and coding
+    current = np.full((step, step), 0)
+    for m in r_[:size[0]:8]:
+        for n in r_[:size[1]:8]:
+
+            for i in r_[:8:step]:
+                for j in r_[:8:step]:
+
+                    x = m + i
+                    y = n + j
+                    current = block[x:(x+step), y:(y+step)]
+                    logging.debug("4x4 block row %d column %d, pixel value:", x, y)
+                    logging.debug(current)
+
+                    temp = tf.forwardTransformAndScaling4x4(current, QP)
+                    logging.debug("coefficients:")
+                    logging.debug(temp)
+                    ac_code = cd.CAVLC(temp)
+                    result.append(ac_code)
+
+    # step3: UV coding
+    temp = encoding16x16UV(QP)  # U
+    result.append(temp)
+    temp = encoding16x16UV(QP)  # V
+    result.append(temp)
 
     return result
 
@@ -81,8 +138,8 @@ def encode(im, QP):
             block16x16 = residual[i:(i+step), j:(j+step)]
             macro = encoding16x16(block16x16, QP)
 
-            I_16x16_2_0_1 = 15   #temp code, TODO: should add some basic prediction type in nalutypes
-            mb = ns.MacroblockLayer(I_16x16_2_0_1) #temp code, TODO: should use mode_map to reflect right predict mode
+            I_16x16_2_1_1 = 19   #temp code, TODO: should add some basic prediction type in nalutypes
+            mb = ns.MacroblockLayer(I_16x16_2_1_1) #temp code, TODO: should use mode_map to reflect right predict mode
             mb.set__mb_pred(0) #temp code, should input right parameter of intra_chroma_pred_mode
             mb.set__residual(macro)
             temp = mb.gen()
