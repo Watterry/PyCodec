@@ -1,3 +1,20 @@
+# H.264 Nalu Streamer parser
+# Copyright (C) <2020>  <cookwhy@qq.com>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# Based on the document of ITU-T Recommendation H.264 05/2003 edition
 import logging
 from bitstring import BitStream, BitArray
 import H264Types
@@ -74,6 +91,8 @@ class SpsParser():
         if self.frame_mbs_only_flag == 0:
             self.mb_adaptive_frame_field_flag = stream.read(1).uint
             logging.info("  mb_adaptive_frame_field_flag: %s", "true" if self.mb_adaptive_frame_field_flag else "false")
+        else:
+            self.mb_adaptive_frame_field_flag = 0
 
         self.direct_8x8_inference_flag = stream.read(1).uint
         self.frame_cropping_flag = stream.read(1).uint
@@ -177,7 +196,10 @@ class NalParser():
         logging.info("{")
         
         stream = NaluUnit
+        self.sps = SPS
+        self.pps = PPS
 
+        #slice_header
         self.first_mb_in_slice = stream.read('ue') #ue(v)
         logging.info("  first_mb_in_slice: %d", self.first_mb_in_slice)
 
@@ -238,7 +260,57 @@ class NalParser():
         logging.info("}")
 
         #slice data
+        slice_data = stream[stream.pos: stream.len]
+        logging.debug("slice data: %s", slice_data.peek(32))   # check the start data of slice_data
+        self.__slice_data(slice_data)
+
+    def __slice_data(self, stream):
+        """
+        do slice_data() part of H.264 standard
+        """
         logging.debug("slice data: %s", stream.peek(32))   # check the start data of slice_data
+        if self.pps.entropy_coding_mode_flag:
+            self.cabac_alignment_one_bit = stream.read(1)   #TODO: not verify the validity
+
+        # based on page 62 of ITU-T Recommendation H.264 05/2003 edition
+        MbaffFrameFlag = ( self.sps.mb_adaptive_frame_field_flag and (not self.field_pic_flag) )
+        CurrMbAddr = self.first_mb_in_slice * ( 1 + MbaffFrameFlag )
+        moreDataFlag = 1
+        prevMbSkipped = 0
+        while moreDataFlag:
+            if moreDataFlag:
+                if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
+                    self.mb_field_decoding_flag = 0
+                
+                #parsing macroblock_layer()
+                self.mb_type = stream.read('ue') #ue(v)
+                logging.info("  mb_type: %d", self.mb_type)
+                self.CodedBlockPatternChroma = 1      # TODO: a lot of todo things here
+                self.CodedBlockPatternLuma = 15
+
+                # mb_pred()
+                self.intra_chroma_pred_mode = stream.read('ue')
+                logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+
+                if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0):
+                    self.mb_qp_delta = stream.read('se')
+                    self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
+                    logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
+                    logging.info("  Slice QP: %d", self.SliceQPy)
+
+                #residual
+                
+
+
+            if not self.pps.entropy_coding_mode_flag:
+                #moreDataFlag = more_rbsp_data()  # TODO: to read more rbsp data
+                moreDataFlag = 0   # TODO: temp code, currently just parse one macroblock
+            else:
+                logging.error("Not finish this part yet!")
+
+            # TODO: not finish yet
+            #CurrMbAddr = NextMbAddress( CurrMbAddr )
+
 
 if __name__ == '__main__':
     # Test case for NaluStreamer
