@@ -325,11 +325,21 @@ class NalParser():
                     if not all(result):
                         total = total + 1
                     else:
-                        print('Tuple of arrays returned : ', result[0], result[1])
-                        TotalCoeff = result[0]
-                        TrailingOnes = result[1]
+                        TotalCoeff = int(result[0])
+                        TrailingOnes = int(result[1])
+                        print('Tuple of arrays returned : ', TotalCoeff, TrailingOnes)
                         break
-                        
+
+                # decode the trailing one transform coefficient levels
+                level = np.zeros(TrailingOnes)
+                for x in range(0, TrailingOnes):
+                    trailing_current = stream.read(1).int
+                    if trailing_current==0:
+                        level[x] = 1
+                    else:
+                        level[x] = -1
+
+                logging.debug("coefficient levels: %s", level) 
 
 
             if not self.pps.entropy_coding_mode_flag:
