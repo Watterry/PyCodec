@@ -1,23 +1,28 @@
 # H.264 Nalu Streamer parser
-# Copyright (C) <2020>  <cookwhy@qq.com>
 
+# Copyright (C) <2020>  <cookwhy@qq.com>
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 
 # Based on the document of ITU-T Recommendation H.264 05/2003 edition
+
 import logging
 from bitstring import BitStream, BitArray
 import H264Types
+import vlc
+import numpy as np
 
 #class NaluResolver():
 #    def __init__(self):
@@ -299,7 +304,32 @@ class NalParser():
                     logging.info("  Slice QP: %d", self.SliceQPy)
 
                 #residual
-                
+                temp = stream[0: stream.pos]
+                logging.debug("residual header: %s", temp.bin) 
+                logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
+                luma4x4BlkIdx = 0
+                nA = 0
+                nB = 0
+                nC = nA + nB
+                logging.info("  nC: %d", nC)
+
+                # 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
+                # on page 157
+                total = 1
+                TotalCoeff = -1
+                TrailingOnes = -1
+                while True:
+                    temp = stream.peek(total)
+                    result = np.where(vlc.coeff_token[nC] == temp.bin)
+
+                    if not all(result):
+                        total = total + 1
+                    else:
+                        print('Tuple of arrays returned : ', result[0], result[1])
+                        TotalCoeff = result[0]
+                        TrailingOnes = result[1]
+                        break
+                        
 
 
             if not self.pps.entropy_coding_mode_flag:
