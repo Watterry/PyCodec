@@ -22,5 +22,5 @@ python3 setup.py install
 ```
 
 # Reference
-1. The whole code is based on the document of ITU-T Recommendation H.264 05/2003 edition, which I will call H.264 standard in my comment.
-2. Most test data is from Richardson's book: *The H.264 Advanced Video Compression Standard, Second Edition*.
+1. The whole code is based on the document of ITU-T Recommendation H.264 05/2003 edition, which I will call *[H.264 standard Book]* in my comment.
+2. Most test data is from Richardson's book: *The H.264 Advanced Video Compression Standard, Second Edition*, which I called *[the Richardson Book]* in my comments.
