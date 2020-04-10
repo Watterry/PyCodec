@@ -202,7 +202,7 @@ def encodeRunBefore(block_1D, totalCoeffs, totalZeros):
 
     return enStr
 
-def CAVLC(block):
+def encode(block):
     """
     Entropy of CAVLC
     Args:
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler("coding.log", mode='w'),
+            logging.FileHandler("cavlc.log", mode='w'),
             logging.StreamHandler(),
         ]
     )
@@ -305,4 +305,4 @@ if __name__ == "__main__":
 
     print("Test data:")
     print(test)
-    CAVLC(test)
+    encode(test)

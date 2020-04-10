@@ -327,8 +327,9 @@ class NalParser():
                     else:
                         TotalCoeff = int(result[0])
                         TrailingOnes = int(result[1])
-                        print('Tuple of arrays returned : ', TotalCoeff, TrailingOnes)
+                        logging.debug('TotalCoeff: %d , TrailingOnes: %d ', TotalCoeff, TrailingOnes)
                         break
+                temp = stream.read(total) #drop the data
 
                 # decode the trailing one transform coefficient levels
                 level = np.zeros(TrailingOnes)
@@ -340,6 +341,48 @@ class NalParser():
                         level[x] = -1
 
                 logging.debug("coefficient levels: %s", level) 
+
+                #Following the decoding of the trailing one transform coefficient levels,
+                
+                # initialize suffixLength as follows
+                suffixLength = -1
+                if TotalCoeff>10 and TrailingOnes<3:
+                    suffixLength = 1
+                else:
+                    suffixLength = 0
+
+                level_total = TotalCoeff - TrailingOnes
+                level_prefix = 0
+                level_suffix = 0
+
+                while level_total>0:
+
+                    #decode the remaining levels
+                    total = 1
+                    levelSuffixSize = 0
+                    while True:
+                        temp = stream.peek(total)
+                        result = np.where(vlc.level_prefix == temp.bin)
+
+                        if not all(result):
+                            total = total + 1
+                        else:
+                            level_prefix = int(result[0])
+                            #TrailingOnes = int(result[1])
+                            logging.debug('level_prefix: %d ', level_prefix)
+                            break
+
+                    if level_prefix==14 and suffixLength==0:
+                        levelSuffixSize = 4
+                    elif level_prefix==15:
+                        levelSuffixSize = 12
+                    else:
+                        levelSuffixSize = suffixLength
+
+                    if levelSuffixSize > 0:
+                        level_suffix = stream.read
+
+                    level_total = level_total -1
 
 
             if not self.pps.entropy_coding_mode_flag:
