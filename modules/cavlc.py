@@ -263,16 +263,89 @@ def encode(block):
 
     return stream
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler("cavlc.log", mode='w'),
-            logging.StreamHandler(),
-        ]
-    )
+def decode(nC, stream):
+    """
+    decode pure cavlc stream
+    Args:
+        nC: the nC calculating from nA & nB on page 158
+        stream: the binary data of current 4x4 macroblock
+    
+    Return:
+        4x4 block of coefficients
+    """
 
+    # 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
+    # on page 157
+    total = 1
+    TotalCoeff = -1
+    TrailingOnes = -1
+    while True:
+        temp = stream.peek(total)
+        result = np.where(vlc.coeff_token[nC] == temp.bin)
+
+        if not all(result):
+            total = total + 1
+        else:
+            TotalCoeff = int(result[0])
+            TrailingOnes = int(result[1])
+            logging.debug('TotalCoeff: %d , TrailingOnes: %d ', TotalCoeff, TrailingOnes)
+            break
+    temp = stream.read(total) #drop the data
+
+    # decode the trailing one transform coefficient levels
+    level = np.zeros(TrailingOnes)
+    for x in range(0, TrailingOnes):
+        trailing_current = stream.read(1).int
+        if trailing_current==0:
+            level[x] = 1
+        else:
+            level[x] = -1
+
+    logging.debug("coefficient levels: %s", level) 
+
+    #Following the decoding of the trailing one transform coefficient levels,
+    
+    # initialize suffixLength as follows
+    suffixLength = -1
+    if TotalCoeff>10 and TrailingOnes<3:
+        suffixLength = 1
+    else:
+        suffixLength = 0
+
+    level_total = TotalCoeff - TrailingOnes
+    level_prefix = 0
+    level_suffix = 0
+
+    while level_total>0:
+
+        #decode the remaining levels
+        total = 1
+        levelSuffixSize = 0
+        while True:
+            temp = stream.peek(total)
+            result = np.where(vlc.level_prefix == temp.bin)
+
+            if not all(result):
+                total = total + 1
+            else:
+                level_prefix = int(result[0])
+                #TrailingOnes = int(result[1])
+                logging.debug('level_prefix: %d ', level_prefix)
+                break
+
+        if level_prefix==14 and suffixLength==0:
+            levelSuffixSize = 4
+        elif level_prefix==15:
+            levelSuffixSize = 12
+        else:
+            levelSuffixSize = suffixLength
+
+        if levelSuffixSize > 0:
+            level_suffix = stream.read
+
+        level_total = level_total -1
+
+def testEncode():
     # test = np.array([[0, 3, -1, 0],
     #                  [0, -1, 1, 0],
     #                  [1, 0, 0, 0],
@@ -306,3 +379,24 @@ if __name__ == "__main__":
     print("Test data:")
     print(test)
     encode(test)
+
+def testDecode():
+    nC = 0
+
+    # test data from [the Richardson Book] on page 214
+    stream = BitStream('0b000010001110010111101101')
+
+    decode(nC, stream)
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("cavlc.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
+    #testEncode()
+    testDecode()
