@@ -263,11 +263,12 @@ def encode(block):
 
     return stream
 
-def decode(nC, stream):
+def decode(nC, maxNumCoeff, stream):
     """
     decode pure cavlc stream
     Args:
         nC: the nC calculating from nA & nB on page 158
+        maxNumCoeff: passed in by residual_block()
         stream: the binary data of current 4x4 macroblock
     
     Return:
@@ -382,6 +383,84 @@ def decode(nC, stream):
 
         logging.debug("coefficient levels: %s", level) 
 
+    #step3: 9.2.3 Parsing process for run information
+    index = 0
+    zerosLeft = 0
+    total_zeros = 0
+    
+    print("decoding run information")
+    print(stream.pos)
+    print(stream.peek(8).bin)
+
+    if TotalCoeff==maxNumCoeff:
+        zerosLeft = 0
+    else:
+        #decode total_zeros
+        if maxNumCoeff == 4:
+            #chroma parseing talbe
+            temp = 0
+        else:
+            #get total zeros from table 9-7 & 9-8
+            total = 1
+            while True:
+                temp = stream.peek(total)
+                result = np.where(vlc.total_zeros[:, TotalCoeff] == temp.bin)
+
+                if not all(result):
+                    total = total + 1
+                else:
+                    total_zeros = int(result[0])
+                    logging.debug('total_zeros: %d', total_zeros)
+                    break
+
+            stream.read(total) #drop the level_prefix data
+            zerosLeft = total_zeros
+
+    remaining_runs = TotalCoeff - 1
+    run = np.zeros(16, int)
+    while remaining_runs>0:
+        if zerosLeft>0:
+            
+            if zerosLeft>6:
+                zeros_index = 7
+            else:
+                zeros_index = zerosLeft
+            
+            total = 1
+            while True:
+                temp = stream.peek(total)
+                print("test: %d, total: %d" % (zeros_index, total))
+                result = np.where(vlc.run_before[:, zeros_index] == temp.bin)
+
+                if len(result[0])==0:
+                    total = total + 1
+                else:
+                    run_before = int(result[0])
+                    run[index] = run_before
+                
+                    logging.debug('run_before: %d', run_before)
+
+
+                    break
+
+            stream.read(total) #drop the level_prefix data
+
+        else:
+            run[index] = 0
+            logging.debug('run_before: %d', run[index])
+
+        zerosLeft = zerosLeft - run[index]
+        index = index + 1
+
+        if zerosLeft<0:
+            zerosLeft = 0
+
+        print(zerosLeft)
+        remaining_runs = remaining_runs - 1
+        print(remaining_runs)
+            
+            
+
 def testEncode():
     # test = np.array([[0, 3, -1, 0],
     #                  [0, -1, 1, 0],
@@ -423,7 +502,7 @@ def testDecode():
     # test data from [the Richardson Book] on page 214
     stream = BitStream('0b000010001110010111101101')
 
-    decode(nC, stream)
+    decode(nC, 16, stream)
 
 if __name__ == "__main__":
     logging.basicConfig(
