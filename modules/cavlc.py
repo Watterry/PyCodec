@@ -271,11 +271,11 @@ def decode(nC, stream):
         stream: the binary data of current 4x4 macroblock
     
     Return:
-        4x4 block of coefficients
+        4x4 block of coefficients after unzig-zag
     """
 
-    # 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
-    # on page 157
+    # step1: 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
+    # on page 157 of [H.264 standard Book]
     total = 1
     TotalCoeff = -1
     TrailingOnes = -1
@@ -290,18 +290,27 @@ def decode(nC, stream):
             TrailingOnes = int(result[1])
             logging.debug('TotalCoeff: %d , TrailingOnes: %d ', TotalCoeff, TrailingOnes)
             break
-    temp = stream.read(total) #drop the data
 
+    temp = stream.read(total) #drop the data
+    print(stream.pos)
+    print(stream.peek(8).bin)
+
+    # step2: 9.2.2 Parsing process for level information
     # decode the trailing one transform coefficient levels
-    level = np.zeros(TrailingOnes)
+    level = np.zeros(16)
+    index = 0 # described as variable i on page 160
     for x in range(0, TrailingOnes):
-        trailing_current = stream.read(1).int
-        if trailing_current==0:
+        trailing_ones_sign_flag = stream.read(1).int
+        if trailing_ones_sign_flag==0:
             level[x] = 1
         else:
             level[x] = -1
+        index = index + 1
 
     logging.debug("coefficient levels: %s", level) 
+
+    print(stream.pos)
+    print(stream.peek(8).bin)
 
     #Following the decoding of the trailing one transform coefficient levels,
     
@@ -311,27 +320,31 @@ def decode(nC, stream):
         suffixLength = 1
     else:
         suffixLength = 0
+    logging.debug("init suffixLength: %d", suffixLength) 
 
-    level_total = TotalCoeff - TrailingOnes
-    level_prefix = 0
-    level_suffix = 0
+    remaining_levels = TotalCoeff - TrailingOnes
 
-    while level_total>0:
+    while remaining_levels>0:
 
         #decode the remaining levels
-        total = 1
+        level_prefix = 0
+        level_suffix = 0
         levelSuffixSize = 0
+
+        total = 1
         while True:
+            #level_prefix is decoded using the VLC specified in Table 9-6
             temp = stream.peek(total)
             result = np.where(vlc.level_prefix == temp.bin)
 
-            if not all(result):
+            if len(result[0])==0:
                 total = total + 1
             else:
                 level_prefix = int(result[0])
-                #TrailingOnes = int(result[1])
-                logging.debug('level_prefix: %d ', level_prefix)
                 break
+        
+        stream.read(total) #drop the level_prefix data
+        logging.debug('level_prefix: %d ', level_prefix)
 
         if level_prefix==14 and suffixLength==0:
             levelSuffixSize = 4
@@ -341,9 +354,33 @@ def decode(nC, stream):
             levelSuffixSize = suffixLength
 
         if levelSuffixSize > 0:
-            level_suffix = stream.read
+            level_suffix = stream.read(levelSuffixSize).uint
+        else:
+            level_suffix = 0
 
-        level_total = level_total -1
+        levelCode = (level_prefix << suffixLength) + level_suffix
+
+        if level_prefix==15 and suffixLength==0:
+            levelCode = levelCode + 15
+
+        if index==TrailingOnes and TrailingOnes<3:
+            levelCode = levelCode + 2
+        
+        if levelCode%2==0:
+            level[index] = (levelCode+2)>>1
+        else:
+            level[index] = (-levelCode-1)>>1 
+
+        if suffixLength==0:
+            suffixLength = 1
+
+        if ( abs(level[index]) > (3 << ( suffixLength-1 )) ) and (suffixLength<6):
+            suffixLength = suffixLength + 1
+
+        remaining_levels = remaining_levels - 1
+        index = index + 1
+
+        logging.debug("coefficient levels: %s", level) 
 
 def testEncode():
     # test = np.array([[0, 3, -1, 0],
