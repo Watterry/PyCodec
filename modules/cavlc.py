@@ -263,7 +263,7 @@ def encode(block):
 
     return stream
 
-def decode(nC, maxNumCoeff, stream):
+def decode(stream, nC, maxNumCoeff=16):
     """
     decode pure cavlc stream
     Args:
@@ -459,7 +459,15 @@ def decode(nC, maxNumCoeff, stream):
         remaining_runs = remaining_runs - 1
         print(remaining_runs)
             
-            
+    coeffLevel = np.zeros(16, int)
+    i = TotalCoeff
+    coeffNum = -1
+    while i>=0:
+        coeffNum = coeffNum + run[i] + 1
+        coeffLevel[coeffNum] = level[i]
+        i = i - 1
+
+    logging.debug('coeffLevel: %s', coeffLevel)
 
 def testEncode():
     # test = np.array([[0, 3, -1, 0],
@@ -502,7 +510,10 @@ def testDecode():
     # test data from [the Richardson Book] on page 214
     stream = BitStream('0b000010001110010111101101')
 
-    decode(nC, 16, stream)
+    decode(stream, nC, 16)
+
+    stream = BitStream('0b0001110001110010')
+    decode(stream, nC, 16)
 
 if __name__ == "__main__":
     logging.basicConfig(
