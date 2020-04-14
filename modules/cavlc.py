@@ -293,8 +293,8 @@ def decode(stream, nC, maxNumCoeff=16):
             break
 
     temp = stream.read(total) #drop the data
-    print(stream.pos)
-    print(stream.peek(8).bin)
+    #print(stream.pos)
+    #print(stream.peek(8).bin)
 
     # step2: 9.2.2 Parsing process for level information
     # decode the trailing one transform coefficient levels
@@ -310,8 +310,8 @@ def decode(stream, nC, maxNumCoeff=16):
 
     logging.debug("coefficient levels: %s", level) 
 
-    print(stream.pos)
-    print(stream.peek(8).bin)
+    #print(stream.pos)
+    #print(stream.peek(8).bin)
 
     #Following the decoding of the trailing one transform coefficient levels,
     
@@ -345,7 +345,7 @@ def decode(stream, nC, maxNumCoeff=16):
                 break
         
         stream.read(total) #drop the level_prefix data
-        logging.debug('level_prefix: %d ', level_prefix)
+        #logging.debug('level_prefix: %d ', level_prefix)
 
         if level_prefix==14 and suffixLength==0:
             levelSuffixSize = 4
@@ -381,16 +381,16 @@ def decode(stream, nC, maxNumCoeff=16):
         remaining_levels = remaining_levels - 1
         index = index + 1
 
-        logging.debug("coefficient levels: %s", level) 
+    logging.debug("coefficient levels: %s", level) 
 
     #step3: 9.2.3 Parsing process for run information
     index = 0
     zerosLeft = 0
     total_zeros = 0
     
-    print("decoding run information")
-    print(stream.pos)
-    print(stream.peek(8).bin)
+    logging.debug("decoding run information")
+    #print(stream.pos)
+    #print(stream.peek(4).bin)
 
     if TotalCoeff==maxNumCoeff:
         zerosLeft = 0
@@ -429,7 +429,6 @@ def decode(stream, nC, maxNumCoeff=16):
             total = 1
             while True:
                 temp = stream.peek(total)
-                print("test: %d, total: %d" % (zeros_index, total))
                 result = np.where(vlc.run_before[:, zeros_index] == temp.bin)
 
                 if len(result[0])==0:
@@ -439,8 +438,6 @@ def decode(stream, nC, maxNumCoeff=16):
                     run[index] = run_before
                 
                     logging.debug('run_before: %d', run_before)
-
-
                     break
 
             stream.read(total) #drop the level_prefix data
@@ -455,17 +452,16 @@ def decode(stream, nC, maxNumCoeff=16):
         if zerosLeft<0:
             zerosLeft = 0
 
-        print(zerosLeft)
         remaining_runs = remaining_runs - 1
-        print(remaining_runs)
-    logging.debug('run: %s', run)
+
+    logging.debug('run information: %s', run)
 
     coeffLevel = np.zeros(16, int)
     i = TotalCoeff - 1
     coeffNum = total_zeros - run.sum() - 1  # a different from [H.264 standard Book] on page 162
     for x in range(0, TotalCoeff):
         coeffNum = coeffNum + run[i] + 1
-        print("coeffNum: %d, i: %d, totalZeros: %d" % (coeffNum, i, total_zeros))
+        #print("coeffNum: %d, i: %d, totalZeros: %d" % (coeffNum, i, total_zeros))
         coeffLevel[coeffNum] = level[i]
         i = i - 1
 
@@ -477,10 +473,10 @@ def testEncode():
     #                  [1, 0, 0, 0],
     #                  [0, 0, 0, 0]])
 
-    # test = np.array([[-2, 4, 0, -1],
-    #                  [3, 0, 0, 0],
-    #                  [-3, 0, 0, 0],
-    #                  [0, 0, 0, 0]])
+    test = np.array([[-2, 4, 0, -1],
+                     [3, 0, 0, 0],
+                     [-3, 0, 0, 0],
+                     [0, 0, 0, 0]])
 
     # test = np.array([[0, 0, 1, 0],
     #                  [0, 0, 0, 0],
@@ -497,10 +493,10 @@ def testEncode():
     #                  [4, -7, 5, -3],
     #                  [-1, 2, -1, 2]])
 
-    test = np.array([[-78, 4, 9, 2],
-                     [3, -6, 1, -1],
-                     [2, 1, 0, -1],
-                     [2, 0, 0, 1]])
+    # test = np.array([[-78, 4, 9, 2],
+    #                  [3, -6, 1, -1],
+    #                  [2, 1, 0, -1],
+    #                  [2, 0, 0, 1]])
 
     print("Test data:")
     print(test)
@@ -509,14 +505,20 @@ def testEncode():
 def testDecode():
     nC = 0
 
-    # test data from [the Richardson Book] on page 214
+    # example 1 from [the Richardson Book] on page 214
     stream = BitStream('0b000010001110010111101101')
     logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 16)
 
-    stream = BitStream('0b0001110001110010')
+    # example 2 from [the Richardson Book] on page 215
+    stream = BitStream('0b000000011010001001000010111001100')    
     logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 16)
+
+    # example 3 from [the Richardson Book] on page 216
+    stream = BitStream('0b0001110001110010')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
+    decode(stream, nC, 16)   
 
 if __name__ == "__main__":
     logging.basicConfig(
