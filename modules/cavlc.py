@@ -458,12 +458,14 @@ def decode(stream, nC, maxNumCoeff=16):
         print(zerosLeft)
         remaining_runs = remaining_runs - 1
         print(remaining_runs)
-            
+    logging.debug('run: %s', run)
+
     coeffLevel = np.zeros(16, int)
-    i = TotalCoeff
-    coeffNum = -1
-    while i>=0:
+    i = TotalCoeff - 1
+    coeffNum = total_zeros - run.sum() - 1  # a different from [H.264 standard Book] on page 162
+    for x in range(0, TotalCoeff):
         coeffNum = coeffNum + run[i] + 1
+        print("coeffNum: %d, i: %d, totalZeros: %d" % (coeffNum, i, total_zeros))
         coeffLevel[coeffNum] = level[i]
         i = i - 1
 
@@ -509,10 +511,11 @@ def testDecode():
 
     # test data from [the Richardson Book] on page 214
     stream = BitStream('0b000010001110010111101101')
-
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 16)
 
     stream = BitStream('0b0001110001110010')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 16)
 
 if __name__ == "__main__":
