@@ -483,6 +483,15 @@ def decode(stream, nC, maxNumCoeff=16):
 
     logging.debug('coeffLevel: %s', coeffLevel)
 
+    zig = ZigZag.ZigzagMatrix()
+    print("ZiaZag scan:")
+    block = zig.zig2matrix(coeffLevel, 4, 4)
+
+    logging.debug('block: \n%s', block)
+    logging.debug('stream position: %d', stream.pos)
+
+    return block, stream.pos
+
 def testEncode():
     # test = np.array([[0, 3, -1, 0],
     #                  [0, -1, 1, 0],
