@@ -300,7 +300,7 @@ def decode(stream, nC, maxNumCoeff=16):
         temp = stream.peek(total)
         result = np.where(vlc.coeff_token[nC] == temp.bin)
 
-        if not all(result):
+        if len(result[0])==0:
             total = total + 1
         else:
             TotalCoeff = int(result[0])
@@ -417,20 +417,21 @@ def decode(stream, nC, maxNumCoeff=16):
             temp = 0
         else:
             #get total zeros from table 9-7 & 9-8
-            total = 1
-            while True:
-                temp = stream.peek(total)
-                result = np.where(vlc.total_zeros[:, TotalCoeff] == temp.bin)
+            if TotalCoeff>0:
+                total = 1
+                while True:
+                    temp = stream.peek(total)
+                    result = np.where(vlc.total_zeros[:, TotalCoeff] == temp.bin)
 
-                if not all(result):
-                    total = total + 1
-                else:
-                    total_zeros = int(result[0])
-                    logging.debug('total_zeros: %d', total_zeros)
-                    break
+                    if len(result[0])==0:
+                        total = total + 1
+                    else:
+                        total_zeros = int(result[0])
+                        logging.debug('total_zeros: %d', total_zeros)
+                        break
 
-            stream.read(total) #drop the level_prefix data
-            zerosLeft = total_zeros
+                stream.read(total) #drop the level_prefix data
+                zerosLeft = total_zeros
 
     remaining_runs = TotalCoeff - 1
     run = np.zeros(16, int)
@@ -472,7 +473,7 @@ def decode(stream, nC, maxNumCoeff=16):
 
     logging.debug('run information: %s', run)
 
-    coeffLevel = np.zeros(16, int)
+    coeffLevel = np.zeros(maxNumCoeff, int)
     i = TotalCoeff - 1
     coeffNum = total_zeros - run.sum() - 1  # a different from [H.264 standard Book] on page 162
     for x in range(0, TotalCoeff):
@@ -481,6 +482,8 @@ def decode(stream, nC, maxNumCoeff=16):
         coeffLevel[coeffNum] = level[i]
         i = i - 1
 
+    if maxNumCoeff==15:
+        coeffLevel = np.insert(coeffLevel, 0, 0)
     logging.debug('coeffLevel: %s', coeffLevel)
 
     zig = ZigZag.ZigzagMatrix()
@@ -543,7 +546,25 @@ def testDecode():
     # example 3 from [the Richardson Book] on page 216
     stream = BitStream('0b0001110001110010')
     logging.debug('decoding CAVLC stream: %s', stream.bin)
-    decode(stream, nC, 16)   
+    decode(stream, nC, 16)
+
+def testDecode_15():
+    nC = 0
+    # test data from an encoded H.264 keyframe's AC level
+    stream = BitStream('0b1')
+    decode(stream, nC, 15)
+
+    # test data from an encoded H.264 keyframe's AC level
+    stream = BitStream('0b010000110001')
+    decode(stream, nC, 15)
+
+    # test data from an encoded H.264 keyframe's AC level
+    stream = BitStream('0b000111000110001')
+    decode(stream, nC, 15)
+
+    # test data from an encoded H.264 keyframe's AC level
+    stream = BitStream('0b11000111010100010010101111100110100011011000011010111000101111')
+    decode(stream, nC, 15)
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -557,3 +578,5 @@ if __name__ == "__main__":
 
     #testEncode()
     testDecode()
+
+    #testDecode_15()
