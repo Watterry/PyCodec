@@ -318,7 +318,7 @@ def decode(stream, nC, maxNumCoeff=16):
 
     # step2: 9.2.2 Parsing process for level information
     # decode the trailing one transform coefficient levels
-    level = np.zeros(16)
+    level = np.zeros(maxNumCoeff)
     index = 0 # described as variable i on page 160
     for x in range(0, TrailingOnes):
         trailing_ones_sign_flag = stream.read(1).int
@@ -438,7 +438,7 @@ def decode(stream, nC, maxNumCoeff=16):
                 zerosLeft = total_zeros
 
     remaining_runs = TotalCoeff - 1
-    run = np.zeros(16, int)
+    run = np.zeros(maxNumCoeff, int)
     while remaining_runs>0:
         if zerosLeft>0:
             
@@ -492,7 +492,13 @@ def decode(stream, nC, maxNumCoeff=16):
 
     zig = ZigZag.ZigzagMatrix()
     print("ZiaZag scan:")
-    block = zig.zig2matrix(coeffLevel, 4, 4)
+    matrix_x = 4
+    if maxNumCoeff==15 or maxNumCoeff==16:
+        matrix_x = 4
+    else:
+        matrix_x = 2
+
+    block = zig.zig2matrix(coeffLevel, matrix_x, matrix_x)
 
     logging.debug('block: \n%s', block)
     logging.debug('stream position: %d', stream.pos)

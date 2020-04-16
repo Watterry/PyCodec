@@ -24,6 +24,7 @@ import H264Types
 import vlc
 import cavlc
 import numpy as np
+import copy
 
 #class NaluResolver():
 #    def __init__(self):
@@ -308,7 +309,7 @@ class NalParser():
                 temp = stream[0: stream.pos]
                 logging.debug("residual header: %s", temp.bin) 
                 logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
-                luma4x4BlkIdx = 0
+
                 nA = 0
                 nB = 0
                 nC = nA + nB
@@ -322,7 +323,9 @@ class NalParser():
                 logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
 
                 self.nAnB = np.zeros((4,4), int)    # TODO: use it as a map for all image
+                coeffBlock_16x16 = np.zeros((16, 16), int)
 
+                luma4x4BlkIdx = 0
                 for m in range(0, 2):
                     for n in range(0, 2):
                         for i in range(0, 2):
@@ -341,17 +344,59 @@ class NalParser():
             
                                 logging.debug("following data: %s", stream.peek(80).bin)
                                 blocks = stream[stream.pos: stream.len]
-                                Intra16x16ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, 15)
+                                Intra4x4ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, 15)
 
                                 temp = stream.read(position)   # drop the decoded data
                                 logging.debug("processed data: %s", temp.bin)
                                 logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                                logging.debug("\n%s" % (Intra16x16ACLevel))
+                                logging.debug("\n%s" % (Intra4x4ACLevel))
+
+                                coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
                                 luma4x4BlkIdx = luma4x4BlkIdx + 1
 
-               
+                for i in range(0, 4):
+                    for j in range(0, 4):
+                        coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
+                logging.debug("Reconstructed 16x16 coefficients:")
+                logging.debug("\n%s", coeffBlock_16x16)
 
+                # chroma DC level
+                logging.debug("------------------")
+                logging.debug("Decoding Chroma DC level")
+                logging.debug("following data: %s", stream.peek(80).bin)
+
+                for i in range(0, 2):
+                    blocks = stream[stream.pos: stream.len]
+                    ChromaDCLevel, position, temp = cavlc.decode(blocks, 0, 4)
+                    temp = stream.read(position)   # drop the decoded data
+                    logging.debug("processed data: %s", temp.bin)
+                    logging.debug("ChromaDCLevel_%d:", i)
+                    logging.debug(ChromaDCLevel)
+
+                for m in range(0, 2):   # cb & cr
+                    chroma4x4BlkIdx = 0
+                    for i in range(0, 2):
+                        for j in range(0, 2):
+                            #different nC
+                            logging.debug("------------------")
+                            logging.debug("decoding blockInx: %d, nC: %d", chroma4x4BlkIdx, nC)
+
+                            #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
+                            #nC = self.__get_nC(x, y)
+                                   
+                            #logging.debug("following data: %s", stream.peek(80).bin)
+                            blocks = stream[stream.pos: stream.len]
+                            Chroma4x4ACLevel, position, temp = cavlc.decode(blocks, nC, 15)
+
+                            temp = stream.read(position)   # drop the decoded data
+                            logging.debug("processed data: %s", temp.bin)
+                            logging.debug("Chroma4x4ACLevel_%d:", chroma4x4BlkIdx)
+                            logging.debug("\n%s" % (Chroma4x4ACLevel))
+
+                            #coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+
+                            chroma4x4BlkIdx = chroma4x4BlkIdx + 1
 
 
             if not self.pps.entropy_coding_mode_flag:
@@ -395,10 +440,6 @@ class NalParser():
             nB = self.nAnB[row-1, col]
             nC = (nA + nB + 1) >> 1
 
-        # if nA==0 or nB==0:
-        #     nC = nA + nB
-        # else:
-        #     nC = (nA + nB + 1) >> 1
         return nC
 
 if __name__ == '__main__':
