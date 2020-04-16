@@ -287,8 +287,10 @@ def decode(stream, nC, maxNumCoeff=16):
         maxNumCoeff: passed in by residual_block()
         stream: the binary data of current 4x4 macroblock
     
-    Return:
+    Returns:
         4x4 block of coefficients after unzig-zag
+        the postion of the stream after parser
+        the TotalCoeff of this block
     """
 
     # step1: 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
@@ -296,9 +298,11 @@ def decode(stream, nC, maxNumCoeff=16):
     total = 1
     TotalCoeff = -1
     TrailingOnes = -1
+
+    table_i = vlc.get_nC_table_index(nC)
     while True:
         temp = stream.peek(total)
-        result = np.where(vlc.coeff_token[nC] == temp.bin)
+        result = np.where(vlc.coeff_token[table_i] == temp.bin)
 
         if len(result[0])==0:
             total = total + 1
@@ -493,7 +497,7 @@ def decode(stream, nC, maxNumCoeff=16):
     logging.debug('block: \n%s', block)
     logging.debug('stream position: %d', stream.pos)
 
-    return block, stream.pos
+    return block, stream.pos, TotalCoeff
 
 def testEncode():
     # test = np.array([[0, 3, -1, 0],
@@ -552,19 +556,23 @@ def testDecode_15():
     nC = 0
     # test data from an encoded H.264 keyframe's AC level
     stream = BitStream('0b1')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 15)
 
     # test data from an encoded H.264 keyframe's AC level
     stream = BitStream('0b010000110001')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 15)
 
     # test data from an encoded H.264 keyframe's AC level
     stream = BitStream('0b000111000110001')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, nC, 15)
 
     # test data from an encoded H.264 keyframe's AC level
-    stream = BitStream('0b11000111010100010010101111100110100011011000011010111000101111')
-    decode(stream, nC, 15)
+    stream = BitStream('0b0101000100101011111001101000110110000110101110001')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
+    decode(stream, 1, 15)
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -577,6 +585,6 @@ if __name__ == "__main__":
     )
 
     #testEncode()
-    testDecode()
+    #testDecode()
 
-    #testDecode_15()
+    testDecode_15()

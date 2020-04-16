@@ -22,6 +22,7 @@ import logging
 from bitstring import BitStream, BitArray
 import H264Types
 import vlc
+import cavlc
 import numpy as np
 
 #class NaluResolver():
@@ -312,77 +313,45 @@ class NalParser():
                 nB = 0
                 nC = nA + nB
                 logging.info("  nC: %d", nC)
-
-                # 9.2.1 Parsing process for total number of transform coefficient levels and trailing ones
-                # on page 157
-                total = 1
-                TotalCoeff = -1
-                TrailingOnes = -1
-                while True:
-                    temp = stream.peek(total)
-                    result = np.where(vlc.coeff_token[nC] == temp.bin)
-
-                    if not all(result):
-                        total = total + 1
-                    else:
-                        TotalCoeff = int(result[0])
-                        TrailingOnes = int(result[1])
-                        logging.debug('TotalCoeff: %d , TrailingOnes: %d ', TotalCoeff, TrailingOnes)
-                        break
-                temp = stream.read(total) #drop the data
-
-                # decode the trailing one transform coefficient levels
-                level = np.zeros(TrailingOnes)
-                for x in range(0, TrailingOnes):
-                    trailing_current = stream.read(1).int
-                    if trailing_current==0:
-                        level[x] = 1
-                    else:
-                        level[x] = -1
-
-                logging.debug("coefficient levels: %s", level) 
-
-                #Following the decoding of the trailing one transform coefficient levels,
                 
-                # initialize suffixLength as follows
-                suffixLength = -1
-                if TotalCoeff>10 and TrailingOnes<3:
-                    suffixLength = 1
-                else:
-                    suffixLength = 0
+                blocks = stream[stream.pos: stream.len]
+                Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
+                temp = stream.read(position)   # drop the decoded data
+                logging.debug("processed data: %s", temp.bin)
+                logging.debug("------------------")
+                logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
 
-                level_total = TotalCoeff - TrailingOnes
-                level_prefix = 0
-                level_suffix = 0
+                self.nAnB = np.zeros((4,4), int)    # TODO: use it as a map for all image
 
-                while level_total>0:
+                for m in range(0, 2):
+                    for n in range(0, 2):
+                        for i in range(0, 2):
+                            for j in range(0, 2):
+                                #different nC
+                                logging.debug("------------------")
+                                logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
 
-                    #decode the remaining levels
-                    total = 1
-                    levelSuffixSize = 0
-                    while True:
-                        temp = stream.peek(total)
-                        result = np.where(vlc.level_prefix == temp.bin)
+                                x = m*2+i
+                                y = n*2+j
+                                logging.debug("x, y in nAnB matrix: %d, %d", x, y)
+                                nC = self.__get_nC(x, y)
+                                
+                                print("nAnB:")
+                                print(self.nAnB)
+            
+                                logging.debug("following data: %s", stream.peek(80).bin)
+                                blocks = stream[stream.pos: stream.len]
+                                Intra16x16ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, 15)
 
-                        if not all(result):
-                            total = total + 1
-                        else:
-                            level_prefix = int(result[0])
-                            #TrailingOnes = int(result[1])
-                            logging.debug('level_prefix: %d ', level_prefix)
-                            break
+                                temp = stream.read(position)   # drop the decoded data
+                                logging.debug("processed data: %s", temp.bin)
+                                logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
+                                logging.debug("\n%s" % (Intra16x16ACLevel))
 
-                    if level_prefix==14 and suffixLength==0:
-                        levelSuffixSize = 4
-                    elif level_prefix==15:
-                        levelSuffixSize = 12
-                    else:
-                        levelSuffixSize = suffixLength
+                                luma4x4BlkIdx = luma4x4BlkIdx + 1
 
-                    if levelSuffixSize > 0:
-                        level_suffix = stream.read
+               
 
-                    level_total = level_total -1
 
 
             if not self.pps.entropy_coding_mode_flag:
@@ -394,6 +363,43 @@ class NalParser():
             # TODO: not finish yet
             #CurrMbAddr = NextMbAddress( CurrMbAddr )
 
+    def __get_nC(self, row, col):
+        """
+        calculate nC of current 4x4 block
+        Args:
+            row: the row of current nC block
+            col: the coloum of current nC block
+        Returns:
+            the nC value of current block
+        """
+        nA = 0
+        nB = 0
+
+        i = row - 1
+        j = col - 1
+
+        if row==0 and col==0:
+            nA = 0
+            nB = 0
+            nC = nA + nB
+        elif row==0:
+            nA = self.nAnB[row, col-1]
+            nB = 0
+            nC = nA + nB
+        elif col==0:
+            nA = 0
+            nB = self.nAnB[row-1, col]
+            nC = nA + nB
+        else:
+            nA = self.nAnB[row, col-1]
+            nB = self.nAnB[row-1, col]
+            nC = (nA + nB + 1) >> 1
+
+        # if nA==0 or nB==0:
+        #     nC = nA + nB
+        # else:
+        #     nC = (nA + nB + 1) >> 1
+        return nC
 
 if __name__ == '__main__':
     # Test case for NaluStreamer
