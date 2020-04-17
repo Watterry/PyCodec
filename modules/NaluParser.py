@@ -332,12 +332,12 @@ class NalParser():
                             for j in range(0, 2):
                                 #different nC
                                 logging.debug("------------------")
-                                logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
 
                                 x = m*2+i
                                 y = n*2+j
-                                logging.debug("x, y in nAnB matrix: %d, %d", x, y)
                                 nC = self.__get_nC(x, y)
+                                logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
+                                logging.debug("x, y in nAnB matrix: %d, %d", x, y)
                                 
                                 print("nAnB:")
                                 print(self.nAnB)
@@ -368,7 +368,7 @@ class NalParser():
 
                 for i in range(0, 2):
                     blocks = stream[stream.pos: stream.len]
-                    ChromaDCLevel, position, temp = cavlc.decode(blocks, 0, 4)
+                    ChromaDCLevel, position, temp = cavlc.decode(blocks, 4, 4)
                     temp = stream.read(position)   # drop the decoded data
                     logging.debug("processed data: %s", temp.bin)
                     logging.debug("ChromaDCLevel_%d:", i)
@@ -419,6 +419,7 @@ class NalParser():
         """
         nA = 0
         nB = 0
+        nC = 0
 
         i = row - 1
         j = col - 1
