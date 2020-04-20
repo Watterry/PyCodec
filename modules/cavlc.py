@@ -418,7 +418,23 @@ def decode(stream, nC, maxNumCoeff=16):
         #decode total_zeros
         if maxNumCoeff == 4:
             #chroma parseing talbe
-            temp = 0
+            #get total zeros from table 9-9
+            if TotalCoeff>0:
+                logging.debug('test: xxxxx')
+                total = 1
+                while True:
+                    temp = stream.peek(total)
+                    result = np.where(vlc.total_zeros_2x2[:, TotalCoeff] == temp.bin)
+
+                    if len(result[0])==0:
+                        total = total + 1
+                    else:
+                        total_zeros = int(result[0])
+                        logging.debug('total_zeros: %d', total_zeros)
+                        break
+
+                stream.read(total) #drop the level_prefix data
+                zerosLeft = total_zeros
         else:
             #get total zeros from table 9-7 & 9-8
             if TotalCoeff>0:
@@ -580,6 +596,14 @@ def testDecode_15():
     logging.debug('decoding CAVLC stream: %s', stream.bin)
     decode(stream, 1, 15)
 
+def testDecode_4():
+    nC = 0
+
+    # test data from an encoded H.264 keyframe's AC level
+    stream = BitStream('0b11101000010000110000')
+    logging.debug('decoding CAVLC stream: %s', stream.bin)
+    decode(stream, -1, 4)
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,
@@ -593,4 +617,5 @@ if __name__ == "__main__":
     #testEncode()
     #testDecode()
 
-    testDecode_15()
+    #testDecode_15()
+    testDecode_4()
