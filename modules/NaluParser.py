@@ -291,9 +291,13 @@ class NalParser():
                 
                 #parsing macroblock_layer()
                 self.mb_type = stream.read('ue') #ue(v)
-                logging.info("  mb_type: %d", self.mb_type)
-                self.CodedBlockPatternChroma = 1      # TODO: a lot of todo things here
-                self.CodedBlockPatternLuma = 15
+
+                self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
+                self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
+
+                logging.info("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
+                logging.info("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
+                logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
 
                 # mb_pred()
                 self.intra_chroma_pred_mode = stream.read('ue')
