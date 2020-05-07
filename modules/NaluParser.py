@@ -285,6 +285,8 @@ class NalParser():
         moreDataFlag = 1
         prevMbSkipped = 0
         while moreDataFlag:
+
+            logging.debug("----------------------------------------")
             if moreDataFlag:
                 if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
                     self.mb_field_decoding_flag = 0
@@ -323,7 +325,6 @@ class NalParser():
                 Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
                 temp = stream.read(position)   # drop the decoded data
                 logging.debug("processed data: %s", temp.bin)
-                logging.debug("------------------")
                 logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
 
                 self.nAnB = np.zeros((4,4), int)    # TODO: use it as a map for all image
@@ -335,8 +336,6 @@ class NalParser():
                         for i in range(0, 2):
                             for j in range(0, 2):
                                 #different nC
-                                logging.debug("------------------")
-
                                 x = m*2+i
                                 y = n*2+j
                                 nC = self.__get_nC(x, y)
@@ -366,7 +365,6 @@ class NalParser():
                 logging.debug("\n%s", coeffBlock_16x16)
 
                 # chroma DC level, accroding to page 75 on [H.264 standard Book]
-                logging.debug("------------------")
                 logging.debug("Decoding Chroma DC level")
                 logging.debug("following data: %s", stream.peek(80).bin)
 
@@ -389,7 +387,6 @@ class NalParser():
                         for i in range(0, 2):
                             for j in range(0, 2):
                                 #different nC
-                                logging.debug("------------------")
                                 logging.debug("decoding blockInx: %d, nC: %d", chroma4x4BlkIdx, nC)
 
                                 #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
@@ -413,8 +410,8 @@ class NalParser():
 
 
             if not self.pps.entropy_coding_mode_flag:
-                #moreDataFlag = more_rbsp_data()  # TODO: to read more rbsp data
-                moreDataFlag = 0   # TODO: temp code, currently just parse one macroblock
+                leftBlock = stream[stream.pos: stream.len]
+                moreDataFlag = self.__more_rbsp_data(leftBlock)
             else:
                 logging.error("Not finish this part yet!")
 
@@ -455,6 +452,21 @@ class NalParser():
             nC = (nA + nB + 1) >> 1
 
         return nC
+
+    def __more_rbsp_data(self, leftBlock):
+        """
+        Judge if left block is rbsp_slice_traing_bits()
+        TODO: not finished yet
+        Args:
+            leftBlock: left BitStream data
+
+        Returns:
+            True or False of more_rbsp_data() in H.264 standard
+        """
+        if leftBlock.len > 16:
+            return True
+        else:
+            return False
 
 if __name__ == '__main__':
     # Test case for NaluStreamer
