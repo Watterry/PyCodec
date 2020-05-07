@@ -5,7 +5,7 @@ This library just do basic algorithm analysis and don't care about speed. The ai
 
 If you are interesting in any module of video coding standards, you can request the part to me and I will find some time to realize it.
 
-There is another advantage using Python to do theoretic research. It is very convenient to do unit test in seperate file.
+There is another advantage using Python to do theoretic research. It is very convenient to do unit test in seperate file. For example, you can do CAVLC by just reading the code and do some test using example from the book. It is very convinent to change the test data directly from Python file.
 
 # Dependency
 
@@ -20,6 +20,10 @@ If we can't install h26x-extractor by the pip3 command, we can also download the
 ```bash
 python3 setup.py install
 ```
+
+# TODO
+
+1. H.264 CABAC decoding process
 
 # Reference
 1. The whole code is based on the document of ITU-T Recommendation H.264 05/2003 edition, which I will call *[H.264 standard Book]* in my comment.
