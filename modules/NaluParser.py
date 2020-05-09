@@ -188,7 +188,7 @@ class PpsParser():
 class NalParser():
     """
     Slice parser, get all the element value of nalu
-    Currently just support one keyframe input
+    Currently just support one keyframe input and one slice in keyframe
     """
     def parse(self, NaluUnit, SPS, PPS):
         """
@@ -347,7 +347,7 @@ class NalParser():
             
                                 logging.debug("following data: %s", stream.peek(80).bin)
                                 blocks = stream[stream.pos: stream.len]
-                                Intra4x4ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, 15)
+                                Intra4x4ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
 
                                 temp = stream.read(position)   # drop the decoded data
                                 logging.debug("processed data: %s", temp.bin)
@@ -408,9 +408,10 @@ class NalParser():
                     # two 8x8 AC are zeros
                     logging.debug("Two Chroma 8x8 AC are zeros")
 
-
+            # do next process
+            leftBlock = stream[stream.pos: stream.len]
+            stream = leftBlock
             if not self.pps.entropy_coding_mode_flag:
-                leftBlock = stream[stream.pos: stream.len]
                 moreDataFlag = self.__more_rbsp_data(leftBlock)
             else:
                 logging.error("Not finish this part yet!")
