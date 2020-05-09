@@ -29,7 +29,6 @@ import copy
 #class NaluResolver():
 #    def __init__(self):
 
-
 class SpsParser():
     """
     sps parser, get all the element value of sps
@@ -284,6 +283,18 @@ class NalParser():
         CurrMbAddr = self.first_mb_in_slice * ( 1 + MbaffFrameFlag )
         moreDataFlag = 1
         prevMbSkipped = 0
+
+        width = int(512)  #TODO: get this from sps & pps
+        height = int(512) #TODO: get this from sps & pps
+        coefficients = np.zeros((width, height), int)
+        self.nAnB = np.zeros((int(width/4), int(height/4)), int)
+
+        blk16x16Idx_x = 0   # x position of 16x16 block in this frame
+        blk16x16Idx_y = 0   # y position of 16x16 block in this frame
+
+        row_block_num = int(width / 16)   # the total num of 16x16 blocks in row
+        col_block_num = int(height / 16)  # the total num of 16x16 blocks in column
+
         while moreDataFlag:
 
             logging.debug("----------------------------------------")
@@ -316,10 +327,11 @@ class NalParser():
                 logging.debug("residual header: %s", temp.bin) 
                 logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
 
-                nA = 0
-                nB = 0
-                nC = nA + nB
-                logging.info("  nC: %d", nC)
+                logging.debug("nAnB:")
+                logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+
+                nC = self.__get_nC(blk16x16Idx_y*4, blk16x16Idx_x*4)
+                logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", blk16x16Idx_x, blk16x16Idx_y, nC)
                 
                 blocks = stream[stream.pos: stream.len]
                 Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
@@ -327,7 +339,6 @@ class NalParser():
                 logging.debug("processed data: %s", temp.bin)
                 logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
 
-                self.nAnB = np.zeros((4,4), int)    # TODO: use it as a map for all image
                 coeffBlock_16x16 = np.zeros((16, 16), int)
 
                 luma4x4BlkIdx = 0
@@ -338,16 +349,16 @@ class NalParser():
                                 #different nC
                                 x = m*2+i
                                 y = n*2+j
-                                nC = self.__get_nC(x, y)
+                                abs_row = blk16x16Idx_y*4 + x
+                                abs_col = blk16x16Idx_x*4 + y
+                                nC = self.__get_nC(abs_row, abs_col)
                                 logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
-                                logging.debug("x, y in nAnB matrix: %d, %d", x, y)
+                                logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
                                 
-                                print("nAnB:")
-                                print(self.nAnB)
-            
+           
                                 logging.debug("following data: %s", stream.peek(80).bin)
                                 blocks = stream[stream.pos: stream.len]
-                                Intra4x4ACLevel, position, self.nAnB[x,y] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
+                                Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
 
                                 temp = stream.read(position)   # drop the decoded data
                                 logging.debug("processed data: %s", temp.bin)
@@ -363,6 +374,11 @@ class NalParser():
                         coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
                 logging.debug("Reconstructed 16x16 coefficients:")
                 logging.debug("\n%s", coeffBlock_16x16)
+
+                # dupm luma block to image
+                coefficients[blk16x16Idx_x*16:(blk16x16Idx_x+1)*16, blk16x16Idx_y*16:(blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
+                #logging.debug("Reconstructed image coefficients:")
+                #logging.debug("\n%s", coefficients)
 
                 # chroma DC level, accroding to page 75 on [H.264 standard Book]
                 logging.debug("Decoding Chroma DC level")
@@ -419,6 +435,11 @@ class NalParser():
             # TODO: not finish yet
             #CurrMbAddr = NextMbAddress( CurrMbAddr )
 
+            blk16x16Idx_x = blk16x16Idx_x + 1
+            if blk16x16Idx_x >= row_block_num:
+                blk16x16Idx_x = 0
+                blk16x16Idx_y = blk16x16Idx_y + 1
+
     def __get_nC(self, row, col):
         """
         calculate nC of current 4x4 block
@@ -469,6 +490,56 @@ class NalParser():
         else:
             return False
 
+def main(h264file):
+    """
+    Args:
+        h264file: h264file name, should be using suffix .264 o .h264
+    """
+    # Test Case 1: use test data with one macroblock directly, hard code binary data
+    #sps = BitStream('0x42c01edb02004190')
+    #pps = BitStream('0xca83cb20')
+    #nal = BitStream('0x88843f0a60109e4400020ed2fd431c63a895f346c35c5f92408f38eae8430cc80c8abc765961')
+
+    # Test Case 2: read H264 binary code from file
+
+    # Option1: use H264Parser to read file directly
+    # TODO: something wrong with h264parser, need to fix later
+    # h264parser = h26x_parser.H26xParser(h264file)
+    # h264parser.set_callback("sps", get_sps)
+    # h264parser.set_callback("nalu", do_something)
+    # h264parser.parse()
+
+    # Option2: use position directly for test
+    b = BitArray(bytes=open(h264file, 'rb').read())
+    sps = BitStream(b[5*8: 13*8])
+    logging.debug("sps: %s", sps)
+   
+    pps = BitStream(b[18*8: 22*8])
+    logging.debug("pps: %s", pps)
+    
+    nal = BitStream(b[26*8: b.len])
+    logging.debug("data: %s", nal[0:800])
+
+    # do the decoding things
+    sps_parser = SpsParser()
+    sps_parser.parse(sps)
+
+    pps_parser = PpsParser()
+    pps_parser.parse(pps)
+
+    nal_parser = NalParser()
+    nal_parser.parse(nal, sps_parser, pps_parser)
+
 if __name__ == '__main__':
-    # Test case for NaluStreamer
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("NaluParser.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
     logging.debug("Unit test for NaluParser")
+
+    main("E:/liumangxuxu/code/PyCodec/test/lena_x264_baseline_I_16x16.264")
