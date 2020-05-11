@@ -316,7 +316,8 @@ class NalParser():
                 self.intra_chroma_pred_mode = stream.read('ue')
                 logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
 
-                if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0):
+                if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
+                    (self.mb_type!=0 and self.mb_type!=25)):
                     self.mb_qp_delta = stream.read('se')
                     self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
                     logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
@@ -341,33 +342,34 @@ class NalParser():
 
                 coeffBlock_16x16 = np.zeros((16, 16), int)
 
-                luma4x4BlkIdx = 0
-                for m in range(0, 2):
-                    for n in range(0, 2):
-                        for i in range(0, 2):
-                            for j in range(0, 2):
-                                #different nC
-                                x = m*2+i
-                                y = n*2+j
-                                abs_row = blk16x16Idx_y*4 + x
-                                abs_col = blk16x16Idx_x*4 + y
-                                nC = self.__get_nC(abs_row, abs_col)
-                                logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
-                                logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
-                                
-           
-                                logging.debug("following data: %s", stream.peek(80).bin)
-                                blocks = stream[stream.pos: stream.len]
-                                Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
+                if self.CodedBlockPatternLuma>0:
+                    luma4x4BlkIdx = 0
+                    for m in range(0, 2):
+                        for n in range(0, 2):
+                            for i in range(0, 2):
+                                for j in range(0, 2):
+                                    #different nC
+                                    x = m*2+i
+                                    y = n*2+j
+                                    abs_row = blk16x16Idx_y*4 + x
+                                    abs_col = blk16x16Idx_x*4 + y
+                                    nC = self.__get_nC(abs_row, abs_col)
+                                    logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
+                                    logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
+                                    
+            
+                                    logging.debug("following data: %s", stream.peek(80).bin)
+                                    blocks = stream[stream.pos: stream.len]
+                                    Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
 
-                                temp = stream.read(position)   # drop the decoded data
-                                logging.debug("processed data: %s", temp.bin)
-                                logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                                logging.debug("\n%s" % (Intra4x4ACLevel))
+                                    temp = stream.read(position)   # drop the decoded data
+                                    logging.debug("processed data: %s", temp.bin)
+                                    logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
+                                    logging.debug("\n%s" % (Intra4x4ACLevel))
 
-                                coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+                                    coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
-                                luma4x4BlkIdx = luma4x4BlkIdx + 1
+                                    luma4x4BlkIdx = luma4x4BlkIdx + 1
 
                 for i in range(0, 4):
                     for j in range(0, 4):
