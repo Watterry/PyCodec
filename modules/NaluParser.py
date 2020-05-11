@@ -328,8 +328,8 @@ class NalParser():
                 logging.debug("residual header: %s", temp.bin) 
                 logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
 
-                logging.debug("nAnB:")
-                logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+                #logging.debug("nAnB:")
+                #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
 
                 nC = self.__get_nC(blk16x16Idx_y*4, blk16x16Idx_x*4)
                 logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", blk16x16Idx_x, blk16x16Idx_y, nC)
@@ -357,8 +357,8 @@ class NalParser():
                                     logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
                                     logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
                                     
-            
-                                    logging.debug("following data: %s", stream.peek(80).bin)
+                                    example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
+                                    logging.debug("following data: %s", stream.peek(example_len).bin)
                                     blocks = stream[stream.pos: stream.len]
                                     Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
 
@@ -384,7 +384,8 @@ class NalParser():
 
                 # chroma DC level, accroding to page 75 on [H.264 standard Book]
                 logging.debug("Decoding Chroma DC level")
-                logging.debug("following data: %s", stream.peek(80).bin)
+                example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
+                logging.debug("following data: %s", stream.peek(example_len).bin)
 
                 if self.CodedBlockPatternChroma>0:
                     for i in range(0, 2):

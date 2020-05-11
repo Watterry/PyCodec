@@ -420,7 +420,7 @@ def decode(stream, nC, maxNumCoeff=16):
             #chroma parseing talbe
             #get total zeros from table 9-9
             if TotalCoeff>0:
-                logging.debug('test: xxxxx')
+                #logging.debug('test: xxxxx')
                 total = 1
                 while True:
                     temp = stream.peek(total)
