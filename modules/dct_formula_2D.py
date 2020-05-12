@@ -86,47 +86,6 @@ def dct_detail(S, N = 4):
 
     return T, S_inverse
 
-def processCheck():
-    # 4x4 block test data set
-    # N = 4
-    # S = np.array([[1, 2, 2, 0],
-    #               [0, 1, 3, 1],
-    #               [0, 1, 2, 1],
-    #               [1, 2, 2, -1]])
-
-    # real 8x8 image test data
-    N = 8
-    S = np.array([[182, 196, 199, 201, 203, 201, 199, 173],
-                  [175, 180, 176, 142, 148, 152, 148, 120],
-                  [148, 118, 123, 115, 114, 107, 108, 107],
-                  [115, 110, 110, 112, 105, 109, 101, 100],
-                  [104, 106, 106, 102, 104, 95, 98, 105],
-                  [99, 115, 131, 104, 118, 86, 87, 133],
-                  [112, 154, 154, 107, 140, 97, 88, 151],
-                  [145, 158, 178, 123, 132, 140, 138, 133]])
-
-    # random test data
-    # N = 8   # axis of 1D vector
-    # S = np.random.randint(0, 100, size=[N, N])
-    
-    print("\nTest 2D %dx%d matrix:" % (N, N))
-    print(S)
-
-    # calculate DCT patterns by formula
-    temp, S_i = dct_detail(S, N)
-    diff = tools.psnr(S, np.round(S_i))
-    print("\nPSNR is: ", np.around(diff, 2))
-
-    # check the coefficients by Scipy
-    T_scipy = np.round(block2dct(S), 4)
-    print("\nthe expansion coefficients using SciPy:")
-    print(T_scipy)
-
-    #something wrong with below calculation
-    S_scipy = np.round(dct2block(T_scipy), 4)
-    print("\nInverse Result using SciPy:")
-    print(S_scipy)
-
 def Img2DctUsingScipy(im, m):
     '''
     transform image to dct coefficients using my scipy embed functions
@@ -169,6 +128,47 @@ def Img2DctUsingDetail(im, m):
             dct[i:(i+m),j:(j+m)], img_dct[i:(i+m),j:(j+m)] = dct_detail( im[i:(i+m),j:(j+m)], m )
 
     return dct, np.round(img_dct, 0)
+
+def processCheck():
+    # 4x4 block test data set
+    # N = 4
+    # S = np.array([[1, 2, 2, 0],
+    #               [0, 1, 3, 1],
+    #               [0, 1, 2, 1],
+    #               [1, 2, 2, -1]])
+
+    # real 8x8 image test data
+    N = 8
+    S = np.array([[182, 196, 199, 201, 203, 201, 199, 173],
+                  [175, 180, 176, 142, 148, 152, 148, 120],
+                  [148, 118, 123, 115, 114, 107, 108, 107],
+                  [115, 110, 110, 112, 105, 109, 101, 100],
+                  [104, 106, 106, 102, 104, 95, 98, 105],
+                  [99, 115, 131, 104, 118, 86, 87, 133],
+                  [112, 154, 154, 107, 140, 97, 88, 151],
+                  [145, 158, 178, 123, 132, 140, 138, 133]])
+
+    # random test data
+    # N = 8   # axis of 1D vector
+    # S = np.random.randint(0, 100, size=[N, N])
+    
+    print("\nTest 2D %dx%d matrix:" % (N, N))
+    print(S)
+
+    # calculate DCT patterns by formula
+    temp, S_i = dct_detail(S, N)
+    diff = tools.psnr(S, np.round(S_i))
+    print("\nPSNR is: ", np.around(diff, 2))
+
+    # check the coefficients by Scipy
+    T_scipy = np.round(block2dct(S), 4)
+    print("\nthe expansion coefficients using SciPy:")
+    print(T_scipy)
+
+    #something wrong with below calculation
+    S_scipy = np.round(dct2block(T_scipy), 4)
+    print("\nInverse Result using SciPy:")
+    print(S_scipy)
 
 def processWholeImage():
     im = plt.imread("lena2.tif").astype(float)
