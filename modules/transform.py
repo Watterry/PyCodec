@@ -198,14 +198,14 @@ def testCase1():
     print(img_dct)
 
 def testCase2():
-    test = np.array([[75, 0, 0, 0],
-                     [0, 0, 0, 0],
-                     [0, 0, 0, 0],
-                     [0, 0, 0, 0]])
-    logging.debug("Test data:\n %s", test)
+    dct = np.array([[75, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0]])
+    logging.debug("dct data:\n %s", dct)
 
     QP = 20
-    back = inverseTransformAndScaling4x4(test, QP)
+    back = inverseTransformAndScaling4x4(dct, QP)
     logging.debug("Inverse transform and decoding:\n %s", back)
 
 if __name__ == "__main__":
