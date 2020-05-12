@@ -7,6 +7,7 @@ import matplotlib
 import math
 from numpy import r_
 import tools
+import logging
 
 def block2dct(a):
     return scipy.fftpack.dct( scipy.fftpack.dct( a, axis=0, norm='ortho' ), axis=1, norm='ortho' )
@@ -196,6 +197,15 @@ def processWholeImage():
     plt.show()
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("dct_formula_2D.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
     np.set_printoptions(suppress=True)
 
     # check the DCT and iDCT process
