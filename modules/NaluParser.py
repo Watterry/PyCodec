@@ -546,4 +546,4 @@ if __name__ == '__main__':
 
     logging.debug("Unit test for NaluParser")
 
-    main("E:/liumangxuxu/code/PyCodec/test/lena_x264_baseline_I_16x16.264")
+    main("../test/lena_x264_baseline_I_16x16.264")
