@@ -329,6 +329,8 @@ class NalParser():
         self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
 
         logging.info("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
+        logging.info("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0])
+        logging.info("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[1])
         logging.info("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
 

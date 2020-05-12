@@ -74,6 +74,25 @@ I_slice_Macroblock_types = np.array([
         ['I_PCM', 'na', -1, -1, -1],
         ])
 
+#table 8-3 on page 106 of [H.264 standard Book]
+Intra16x16PredMode_names = np.array(['Intra_16x16_Vertical',    # Intra16x16PredMode=0
+                                     'Intra_16x16_Horizontal',  # Intra16x16PredMode=1
+                                     'Intra_16x16_DC',          # Intra16x16PredMode=2
+                                     'Intra_16x16_Plane'        # Intra16x16PredMode=3
+                                    ])
+
+def get_I_slice_Intra16x16PredMode(mb_type):
+    """
+    Get I slice Macroblock CodedBlockPatternChroma info
+    Args:
+        mb_type: I slice Macroblock type
+    Returns:
+        int value of CodedBlockPatternChroma
+    """
+    predType = int(I_slice_Macroblock_types[mb_type][2])
+
+    return predType, Intra16x16PredMode_names[predType]
+
 def get_I_slice_CodedBlockPatternChroma(mb_type):
     """
     Get I slice Macroblock CodedBlockPatternChroma info
