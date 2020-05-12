@@ -95,6 +95,10 @@ class SpsParser():
         logging.info("  pic_height_in_map_units_minus1: %d", self.pic_height_in_map_units_minus1)
         logging.info("  frame_mbs_only_flag: %s", "true" if self.frame_mbs_only_flag else "false")
 
+        self.PicWidthInSamples = (self.pic_width_in_mbs_minus1+1) * 16
+        self.PicHeightInSamples = (self.pic_height_in_map_units_minus1+1) * 16
+        logging.info("  width: %d, height %d", self.PicWidthInSamples, self.PicHeightInSamples)
+
         if self.frame_mbs_only_flag == 0:
             self.mb_adaptive_frame_field_flag = stream.read(1).uint
             logging.info("  mb_adaptive_frame_field_flag: %s", "true" if self.mb_adaptive_frame_field_flag else "false")
@@ -120,6 +124,12 @@ class SpsParser():
 
     def vui_parameters(self):
         logging.error("vui_parameters is not work right now!")
+
+    def getWidth(self):
+        return self.PicWidthInSamples
+
+    def getHeight(self):
+        return self.PicHeightInSamples
 
 class PpsParser():
     """
@@ -286,8 +296,8 @@ class NalParser():
         moreDataFlag = 1
         prevMbSkipped = 0
 
-        width = int(512)  #TODO: get this from sps & pps
-        height = int(512) #TODO: get this from sps & pps
+        width = int(self.sps.getWidth())
+        height = int(self.sps.getHeight())
         self.coefficients = np.zeros((width, height), int)
         self.modemap = np.zeros((width, height), int)
         self.nAnB = np.zeros((int(width/4), int(height/4)), int)
@@ -563,7 +573,7 @@ if __name__ == '__main__':
             logging.StreamHandler(),
         ]
     )
-    logging.getLogger('matplotlib.font_manager').disabled = True
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
     logging.debug("Unit test for NaluParser")
 
