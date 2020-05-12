@@ -201,34 +201,34 @@ class NalParser():
         logging.info("slice_header()")
         logging.info("{")
         
-        stream = NaluUnit
+        self.stream = NaluUnit
         self.sps = SPS
         self.pps = PPS
 
         #slice_header
-        self.first_mb_in_slice = stream.read('ue') #ue(v)
+        self.first_mb_in_slice = self.stream.read('ue') #ue(v)
         logging.info("  first_mb_in_slice: %d", self.first_mb_in_slice)
 
-        self.slice_type = stream.read('ue') #ue(v)
+        self.slice_type = self.stream.read('ue') #ue(v)
         logging.info("  slice_type: %s", H264Types.slice_type(self.slice_type))
 
-        self.pic_parameter_set_id = stream.read('ue') #ue(v)
+        self.pic_parameter_set_id = self.stream.read('ue') #ue(v)
         logging.info("  pic_parameter_set_id: %d", self.pic_parameter_set_id)
 
         length = SPS.log2_max_frame_num_minus4 + 4
-        self.frame_num = stream.read(length).uint
+        self.frame_num = self.stream.read(length).uint
         logging.info("  frame_num: %d", self.frame_num)
 
         if not SPS.frame_mbs_only_flag:
-            self.field_pic_flag = stream.read(1).uint
+            self.field_pic_flag = self.stream.read(1).uint
             logging.info("  field_pic_flag: %d", self.field_pic_flag)
             if self.field_pic_flag:
-                self.bottom_field_flag = stream.read(1).uint
+                self.bottom_field_flag = self.stream.read(1).uint
                 logging.info("  bottom_field_flag: %d", self.bottom_field_flag)
 
         nal_unit_type = 5   #TODO: nal_unit_type should passed in by outside or parse by self??
         if nal_unit_type == 5:
-            self.idr_pic_id = stream.read('ue') #ue(v)
+            self.idr_pic_id = self.stream.read('ue') #ue(v)
             logging.info("  idr_pic_id: %d", self.idr_pic_id)
 
         #TODO: add a lot of parse process here
@@ -236,47 +236,46 @@ class NalParser():
         nal_ref_idc = 0   #TODO: nal_ref_idc should passed in by outside or parse by self??
         if not nal_ref_idc:
             if nal_unit_type == 5:
-                self.no_output_of_prior_pics_flag = stream.read(1).uint
-                self.long_term_reference_flag = stream.read(1).uint
+                self.no_output_of_prior_pics_flag = self.stream.read(1).uint
+                self.long_term_reference_flag = self.stream.read(1).uint
                 logging.info("  no_output_of_prior_pics_flag: %s", "true" if self.no_output_of_prior_pics_flag else "false")
                 logging.info("  long_term_reference_flag: %s", "true" if self.long_term_reference_flag else "false")
             else:
-                self.adaptive_ref_pic_marking_mode_flag = stream.read(1).uint
+                self.adaptive_ref_pic_marking_mode_flag = self.stream.read(1).uint
                 #TODO add more process here
 
         # if PPS.entropy_coding_mode_flag and (self.slice_type!=H264Types.slice_type('I') or self.slice_type!=H264Types.slice_type('I7'))
         #    and (self.slice_type!=H264Types.slice_type('SI') or self.slice_type!=H264Types.slice_type('SI9')):
         if PPS.entropy_coding_mode_flag:
-           self.cabac_init_idc = stream.read('ue') #ue(v)
+           self.cabac_init_idc = self.stream.read('ue') #ue(v)
            logging.info("  cabac_init_idc: %d", self.cabac_init_idc)
 
-        self.slice_qp_delta = stream.read('se') #se(v)
+        self.slice_qp_delta = self.stream.read('se') #se(v)
         logging.info("  slice_qp_delta: %d", self.slice_qp_delta)
 
         if PPS.deblocking_filter_control_present_flag:
-            self.disable_deblocking_filter_idc = stream.read('ue') #ue(v)
+            self.disable_deblocking_filter_idc = self.stream.read('ue') #ue(v)
             logging.info("  disable_deblocking_filter_idc: %d", self.disable_deblocking_filter_idc)
             if self.disable_deblocking_filter_idc != 1:
-                self.slice_alpha_c0_offset_div2 = stream.read('se') #se(v)
+                self.slice_alpha_c0_offset_div2 = self.stream.read('se') #se(v)
                 logging.info("  slice_alpha_c0_offset_div2: %d", self.slice_alpha_c0_offset_div2)
 
-                self.slice_beta_offset_div2 = stream.read('se') #se(v)
+                self.slice_beta_offset_div2 = self.stream.read('se') #se(v)
                 logging.info("  slice_beta_offset_div2: %d", self.slice_beta_offset_div2)
         
         logging.info("}")
 
         #slice data
-        slice_data = stream[stream.pos: stream.len]
-        logging.debug("slice data: %s", slice_data.peek(32))   # check the start data of slice_data
-        self.__slice_data(slice_data)
+        logging.debug("slice data: %s", self.stream.peek(32))   # check the start data of slice_data
+        self.__slice_data()
 
-    def __slice_data(self, stream):
+    def __slice_data(self):
         """
         do slice_data() part of H.264 standard
         """
-        logging.debug("slice data: %s", stream.peek(32))   # check the start data of slice_data
+        logging.debug("slice data: %s", self.stream.peek(32))   # check the start data of slice_data
         if self.pps.entropy_coding_mode_flag:
-            self.cabac_alignment_one_bit = stream.read(1)   #TODO: not verify the validity
+            self.cabac_alignment_one_bit = self.stream.read(1)   #TODO: not verify the validity
 
         # based on page 62 of ITU-T Recommendation H.264 05/2003 edition
         MbaffFrameFlag = ( self.sps.mb_adaptive_frame_field_flag and (not self.field_pic_flag) )
@@ -289,8 +288,8 @@ class NalParser():
         self.coefficients = np.zeros((width, height), int)
         self.nAnB = np.zeros((int(width/4), int(height/4)), int)
 
-        blk16x16Idx_x = 0   # x position of 16x16 block in this frame
-        blk16x16Idx_y = 0   # y position of 16x16 block in this frame
+        self.blk16x16Idx_x = 0   # x position of 16x16 block in this frame
+        self.blk16x16Idx_y = 0   # y position of 16x16 block in this frame
 
         row_block_num = int(width / 16)   # the total num of 16x16 blocks in row
         col_block_num = int(height / 16)  # the total num of 16x16 blocks in column
@@ -303,32 +302,28 @@ class NalParser():
                     self.mb_field_decoding_flag = 0
                 
                 #parsing macroblock_layer()
-                macroblock = stream[stream.pos: stream.len]
-                pos = self.__macroblock_layer(blk16x16Idx_x, blk16x16Idx_y, macroblock)
-                stream.read(pos)   # drop the decoded data
-
+                self.__macroblock_layer()
 
             # do next process
-            leftBlock = stream[stream.pos: stream.len]
-            stream = leftBlock
             if not self.pps.entropy_coding_mode_flag:
-                moreDataFlag = self.__more_rbsp_data(leftBlock)
+                moreDataFlag = self.__more_rbsp_data()
             else:
                 logging.error("Not finish this part yet!")
 
             # TODO: not finish yet
             #CurrMbAddr = NextMbAddress( CurrMbAddr )
 
-            blk16x16Idx_x = blk16x16Idx_x + 1
-            if blk16x16Idx_x >= row_block_num:
-                blk16x16Idx_x = 0
-                blk16x16Idx_y = blk16x16Idx_y + 1
+            self.blk16x16Idx_x = self.blk16x16Idx_x + 1
+            if self.blk16x16Idx_x >= row_block_num:
+                self.blk16x16Idx_x = 0
+                self.blk16x16Idx_y = self.blk16x16Idx_y + 1
 
-    def __macroblock_layer(self, blk16x16Idx_x, blk16x16Idx_y, stream):
+    def __macroblock_layer(self):
         """
         do macroblock_layer() part of H.264 standard
         """
-        self.mb_type = stream.read('ue') #ue(v)
+        startPos = self.stream.pos
+        self.mb_type = self.stream.read('ue') #ue(v)
 
         self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
         self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
@@ -338,30 +333,30 @@ class NalParser():
         logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
 
         # mb_pred()
-        self.intra_chroma_pred_mode = stream.read('ue')
+        self.intra_chroma_pred_mode = self.stream.read('ue')
         logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
 
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
             (self.mb_type!=0 and self.mb_type!=25)):
-            self.mb_qp_delta = stream.read('se')
+            self.mb_qp_delta = self.stream.read('se')
             self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
             logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
             logging.info("  Slice QP: %d", self.SliceQPy)
 
         #residual
-        temp = stream[0: stream.pos]
+        temp = self.stream[startPos: self.stream.pos]
         logging.debug("residual header: %s", temp.bin) 
-        logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
+        logging.debug("residual body: %s", self.stream.peek(32).bin)   # check the start data of slice_data
 
         #logging.debug("nAnB:")
         #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
 
-        nC = self.__get_nC(blk16x16Idx_y*4, blk16x16Idx_x*4)
-        logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", blk16x16Idx_x, blk16x16Idx_y, nC)
+        nC = self.__get_nC(self.blk16x16Idx_y*4, self.blk16x16Idx_x*4)
+        logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
         
-        blocks = stream[stream.pos: stream.len]
+        blocks = self.stream[self.stream.pos: self.stream.len]
         Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
-        temp = stream.read(position)   # drop the decoded data
+        temp = self.stream.read(position)   # drop the decoded data
         logging.debug("processed data: %s", temp.bin)
         logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
 
@@ -376,18 +371,18 @@ class NalParser():
                             #different nC
                             x = m*2+i
                             y = n*2+j
-                            abs_row = blk16x16Idx_y*4 + x
-                            abs_col = blk16x16Idx_x*4 + y
+                            abs_row = self.blk16x16Idx_y*4 + x
+                            abs_col = self.blk16x16Idx_x*4 + y
                             nC = self.__get_nC(abs_row, abs_col)
                             logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
                             logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
                             
-                            example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-                            logging.debug("following data: %s", stream.peek(example_len).bin)
-                            blocks = stream[stream.pos: stream.len]
+                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
+                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                            blocks = self.stream[self.stream.pos: self.stream.len]
                             Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
 
-                            temp = stream.read(position)   # drop the decoded data
+                            temp = self.stream.read(position)   # drop the decoded data
                             logging.debug("processed data: %s", temp.bin)
                             logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
                             logging.debug("\n%s" % (Intra4x4ACLevel))
@@ -403,20 +398,20 @@ class NalParser():
         logging.debug("\n%s", coeffBlock_16x16)
 
         # dupm luma block to image
-        self.coefficients[blk16x16Idx_x*16:(blk16x16Idx_x+1)*16, blk16x16Idx_y*16:(blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
+        self.coefficients[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
 
         # chroma DC level, accroding to page 75 on [H.264 standard Book]
         logging.debug("Decoding Chroma DC level")
-        example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-        logging.debug("following data: %s", stream.peek(example_len).bin)
+        example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
+        logging.debug("following data: %s", self.stream.peek(example_len).bin)
 
         if self.CodedBlockPatternChroma>0:
             for i in range(0, 2):
-                blocks = stream[stream.pos: stream.len]
+                blocks = self.stream[self.stream.pos: self.stream.len]
                 ChromaDCLevel, position, temp = cavlc.decode(blocks, -1, 4)
-                temp = stream.read(position)   # drop the decoded data
+                temp = self.stream.read(position)   # drop the decoded data
                 logging.debug("processed data: %s", temp.bin)
                 logging.debug("ChromaDCLevel_%d:", i)
                 logging.debug("\n%s" % (ChromaDCLevel))
@@ -435,12 +430,12 @@ class NalParser():
 
                         #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
                         #nC = self.__get_nC(x, y)
-                        example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-                        logging.debug("following data: %s", stream.peek(example_len).bin)
-                        blocks = stream[stream.pos: stream.len]
+                        example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
+                        logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                        blocks = self.stream[self.stream.pos: self.stream.len]
                         Chroma4x4ACLevel, position, temp = cavlc.decode(blocks, nC, 15)
 
-                        temp = stream.read(position)   # drop the decoded data
+                        temp = self.stream.read(position)   # drop the decoded data
                         logging.debug("processed data: %s", temp.bin)
                         logging.debug("Chroma4x4ACLevel_%d:", chroma4x4BlkIdx)
                         logging.debug("\n%s" % (Chroma4x4ACLevel))
@@ -451,8 +446,6 @@ class NalParser():
         else:
             # two 8x8 AC are zeros
             logging.debug("Two Chroma 8x8 AC are zeros")
-
-        return stream.pos
 
     def __get_nC(self, row, col):
         """
@@ -489,17 +482,14 @@ class NalParser():
 
         return nC
 
-    def __more_rbsp_data(self, leftBlock):
+    def __more_rbsp_data(self):
         """
         Judge if left block is rbsp_slice_traing_bits()
         TODO: not finished yet
-        Args:
-            leftBlock: left BitStream data
-
         Returns:
             True or False of more_rbsp_data() in H.264 standard
         """
-        if leftBlock.len > 16:
+        if self.stream.len-self.stream.pos > 16:
             return True
         else:
             return False
