@@ -289,19 +289,7 @@ def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
 
     return original
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler("prediction.log", mode='w'),
-            logging.StreamHandler(),
-        ]
-    )
-    logging.getLogger('matplotlib.font_manager').disabled = True
-
-    np.set_printoptions(suppress=True)
-
+def testCase1():
     qp = 15
     step = 16
     im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
@@ -318,3 +306,47 @@ if __name__ == "__main__":
     logging.debug(tools.psnr(im, i_im))
 
     plt.show()
+
+def testCase2():
+    qp = 20
+    mbWidth = 16
+
+    coeffs = np.load("coefficient.npy")
+    modemap = np.load("modemap.npy")
+
+    residual = dct_formula_2D.Dct2ImgUsingScipy(coeffs, 4)
+    image = inverseIntraPrediction(residual, modemap, mbWidth)
+
+    plt.figure()
+    plt.imshow(coeffs, cmap='gray')
+    plt.title("coeffs image")
+
+    plt.figure()
+    plt.imshow(modemap, cmap='gray')
+    plt.title("ModeMap image")
+
+    plt.figure()
+    plt.imshow(residual, cmap='gray')
+    plt.title("residual image")
+
+    plt.figure()
+    plt.imshow(image, cmap='gray')
+    plt.title("Inverse image")
+
+    plt.show()
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("prediction.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+    logging.getLogger('matplotlib.font_manager').disabled = True
+
+    np.set_printoptions(suppress=True)
+
+    #testCase1()
+    testCase2()

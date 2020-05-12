@@ -1,9 +1,25 @@
 # 4 × 4 Transform and quantization
+#
+# Copyright (C) <2020>  <cookwhy@qq.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 import dct_formula_2D
 import ZigZag
 import math
+import logging
 
 Cf4 = np.array([[1, 1, 1, 1],
                 [2, 1, -1, -2],
@@ -146,7 +162,7 @@ def forwardHadamardAndScaling4x4(X, QP):
 
     return Y
 
-if __name__ == "__main__":
+def testCase1():
     test = np.array([[58, 64, 51, 58],
                      [52, 64, 56, 66],
                      [62, 63, 61, 64],
@@ -161,18 +177,47 @@ if __name__ == "__main__":
     print(code)
 
     #use Zigzag to scan
-    zig = ZigZag.ZigzagMatrix()
     print("ZiaZag scan:")
+    zig = ZigZag.ZigzagMatrix()
     res = zig.matrix2zig(code)
     print(res)
 
+    print("UnZiaZag scan:")
+    res = zig.zig2matrix(res, 4, 4)
+    print(res)
+
     #inverse transform
-    back = inverseTransformAndScaling4x4(code, QP)
+    back = inverseTransformAndScaling4x4(res, QP)
     print("Inverse transform and decoding:")
     print(back)
 
-    # Part2: Use DCT to compare
+    # Part2: Use DCT to compare, it is not totally the same as H.264 transform
     dct = np.round(dct_formula_2D.Img2DctUsingScipy(test, 4), 4)
     print(dct)
     img_dct = dct_formula_2D.Dct2ImgUsingScipy(dct, 4)
     print(img_dct)
+
+def testCase2():
+    test = np.array([[75, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0]])
+    logging.debug("Test data:\n %s", test)
+
+    QP = 20
+    back = inverseTransformAndScaling4x4(test, QP)
+    logging.debug("Inverse transform and decoding:\n %s", back)
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("transform.log", mode='w'),
+            logging.StreamHandler(),
+        ]
+    )
+
+    #testCase1()
+
+    testCase2()
