@@ -286,7 +286,7 @@ class NalParser():
 
         width = int(512)  #TODO: get this from sps & pps
         height = int(512) #TODO: get this from sps & pps
-        coefficients = np.zeros((width, height), int)
+        self.coefficients = np.zeros((width, height), int)
         self.nAnB = np.zeros((int(width/4), int(height/4)), int)
 
         blk16x16Idx_x = 0   # x position of 16x16 block in this frame
@@ -303,129 +303,10 @@ class NalParser():
                     self.mb_field_decoding_flag = 0
                 
                 #parsing macroblock_layer()
-                self.mb_type = stream.read('ue') #ue(v)
+                macroblock = stream[stream.pos: stream.len]
+                pos = self.__macroblock_layer(blk16x16Idx_x, blk16x16Idx_y, macroblock)
+                stream.read(pos)   # drop the decoded data
 
-                self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
-                self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
-
-                logging.info("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
-                logging.info("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
-                logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
-
-                # mb_pred()
-                self.intra_chroma_pred_mode = stream.read('ue')
-                logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
-
-                if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
-                    (self.mb_type!=0 and self.mb_type!=25)):
-                    self.mb_qp_delta = stream.read('se')
-                    self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
-                    logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
-                    logging.info("  Slice QP: %d", self.SliceQPy)
-
-                #residual
-                temp = stream[0: stream.pos]
-                logging.debug("residual header: %s", temp.bin) 
-                logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
-
-                #logging.debug("nAnB:")
-                #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
-
-                nC = self.__get_nC(blk16x16Idx_y*4, blk16x16Idx_x*4)
-                logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", blk16x16Idx_x, blk16x16Idx_y, nC)
-                
-                blocks = stream[stream.pos: stream.len]
-                Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
-                temp = stream.read(position)   # drop the decoded data
-                logging.debug("processed data: %s", temp.bin)
-                logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
-
-                coeffBlock_16x16 = np.zeros((16, 16), int)
-
-                if self.CodedBlockPatternLuma>0:
-                    luma4x4BlkIdx = 0
-                    for m in range(0, 2):
-                        for n in range(0, 2):
-                            for i in range(0, 2):
-                                for j in range(0, 2):
-                                    #different nC
-                                    x = m*2+i
-                                    y = n*2+j
-                                    abs_row = blk16x16Idx_y*4 + x
-                                    abs_col = blk16x16Idx_x*4 + y
-                                    nC = self.__get_nC(abs_row, abs_col)
-                                    logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
-                                    logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
-                                    
-                                    example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-                                    logging.debug("following data: %s", stream.peek(example_len).bin)
-                                    blocks = stream[stream.pos: stream.len]
-                                    Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
-
-                                    temp = stream.read(position)   # drop the decoded data
-                                    logging.debug("processed data: %s", temp.bin)
-                                    logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                                    logging.debug("\n%s" % (Intra4x4ACLevel))
-
-                                    coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
-
-                                    luma4x4BlkIdx = luma4x4BlkIdx + 1
-
-                for i in range(0, 4):
-                    for j in range(0, 4):
-                        coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
-                logging.debug("Reconstructed 16x16 coefficients:")
-                logging.debug("\n%s", coeffBlock_16x16)
-
-                # dupm luma block to image
-                coefficients[blk16x16Idx_x*16:(blk16x16Idx_x+1)*16, blk16x16Idx_y*16:(blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
-                #logging.debug("Reconstructed image coefficients:")
-                #logging.debug("\n%s", coefficients)
-
-                # chroma DC level, accroding to page 75 on [H.264 standard Book]
-                logging.debug("Decoding Chroma DC level")
-                example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-                logging.debug("following data: %s", stream.peek(example_len).bin)
-
-                if self.CodedBlockPatternChroma>0:
-                    for i in range(0, 2):
-                        blocks = stream[stream.pos: stream.len]
-                        ChromaDCLevel, position, temp = cavlc.decode(blocks, -1, 4)
-                        temp = stream.read(position)   # drop the decoded data
-                        logging.debug("processed data: %s", temp.bin)
-                        logging.debug("ChromaDCLevel_%d:", i)
-                        logging.debug("\n%s" % (ChromaDCLevel))
-                else:
-                    # two DC are zeros
-                    logging.debug("Two Chroma DC are zeros")
-
-                if self.CodedBlockPatternChroma==2:
-                    for m in range(0, 2):   # cb & cr
-                        chroma4x4BlkIdx = 0
-                        nC = 0
-                        for i in range(0, 2):
-                            for j in range(0, 2):
-                                #different nC
-                                logging.debug("decoding blockInx: %d, nC: %d", chroma4x4BlkIdx, nC)
-
-                                #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
-                                #nC = self.__get_nC(x, y)
-                                example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
-                                logging.debug("following data: %s", stream.peek(example_len).bin)
-                                blocks = stream[stream.pos: stream.len]
-                                Chroma4x4ACLevel, position, temp = cavlc.decode(blocks, nC, 15)
-
-                                temp = stream.read(position)   # drop the decoded data
-                                logging.debug("processed data: %s", temp.bin)
-                                logging.debug("Chroma4x4ACLevel_%d:", chroma4x4BlkIdx)
-                                logging.debug("\n%s" % (Chroma4x4ACLevel))
-
-                                #coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
-
-                                chroma4x4BlkIdx = chroma4x4BlkIdx + 1
-                else:
-                    # two 8x8 AC are zeros
-                    logging.debug("Two Chroma 8x8 AC are zeros")
 
             # do next process
             leftBlock = stream[stream.pos: stream.len]
@@ -442,6 +323,136 @@ class NalParser():
             if blk16x16Idx_x >= row_block_num:
                 blk16x16Idx_x = 0
                 blk16x16Idx_y = blk16x16Idx_y + 1
+
+    def __macroblock_layer(self, blk16x16Idx_x, blk16x16Idx_y, stream):
+        """
+        do macroblock_layer() part of H.264 standard
+        """
+        self.mb_type = stream.read('ue') #ue(v)
+
+        self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
+        self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
+
+        logging.info("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
+        logging.info("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
+        logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
+
+        # mb_pred()
+        self.intra_chroma_pred_mode = stream.read('ue')
+        logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+
+        if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
+            (self.mb_type!=0 and self.mb_type!=25)):
+            self.mb_qp_delta = stream.read('se')
+            self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
+            logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
+            logging.info("  Slice QP: %d", self.SliceQPy)
+
+        #residual
+        temp = stream[0: stream.pos]
+        logging.debug("residual header: %s", temp.bin) 
+        logging.debug("residual body: %s", stream.peek(32).bin)   # check the start data of slice_data
+
+        #logging.debug("nAnB:")
+        #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+
+        nC = self.__get_nC(blk16x16Idx_y*4, blk16x16Idx_x*4)
+        logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", blk16x16Idx_x, blk16x16Idx_y, nC)
+        
+        blocks = stream[stream.pos: stream.len]
+        Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
+        temp = stream.read(position)   # drop the decoded data
+        logging.debug("processed data: %s", temp.bin)
+        logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
+
+        coeffBlock_16x16 = np.zeros((16, 16), int)
+
+        if self.CodedBlockPatternLuma>0:
+            luma4x4BlkIdx = 0
+            for m in range(0, 2):
+                for n in range(0, 2):
+                    for i in range(0, 2):
+                        for j in range(0, 2):
+                            #different nC
+                            x = m*2+i
+                            y = n*2+j
+                            abs_row = blk16x16Idx_y*4 + x
+                            abs_col = blk16x16Idx_x*4 + y
+                            nC = self.__get_nC(abs_row, abs_col)
+                            logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
+                            logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
+                            
+                            example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
+                            logging.debug("following data: %s", stream.peek(example_len).bin)
+                            blocks = stream[stream.pos: stream.len]
+                            Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
+
+                            temp = stream.read(position)   # drop the decoded data
+                            logging.debug("processed data: %s", temp.bin)
+                            logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
+                            logging.debug("\n%s" % (Intra4x4ACLevel))
+
+                            coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+
+                            luma4x4BlkIdx = luma4x4BlkIdx + 1
+
+        for i in range(0, 4):
+            for j in range(0, 4):
+                coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
+        logging.debug("Reconstructed 16x16 coefficients:")
+        logging.debug("\n%s", coeffBlock_16x16)
+
+        # dupm luma block to image
+        self.coefficients[blk16x16Idx_x*16:(blk16x16Idx_x+1)*16, blk16x16Idx_y*16:(blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
+        #logging.debug("Reconstructed image coefficients:")
+        #logging.debug("\n%s", coefficients)
+
+        # chroma DC level, accroding to page 75 on [H.264 standard Book]
+        logging.debug("Decoding Chroma DC level")
+        example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
+        logging.debug("following data: %s", stream.peek(example_len).bin)
+
+        if self.CodedBlockPatternChroma>0:
+            for i in range(0, 2):
+                blocks = stream[stream.pos: stream.len]
+                ChromaDCLevel, position, temp = cavlc.decode(blocks, -1, 4)
+                temp = stream.read(position)   # drop the decoded data
+                logging.debug("processed data: %s", temp.bin)
+                logging.debug("ChromaDCLevel_%d:", i)
+                logging.debug("\n%s" % (ChromaDCLevel))
+        else:
+            # two DC are zeros
+            logging.debug("Two Chroma DC are zeros")
+
+        if self.CodedBlockPatternChroma==2:
+            for m in range(0, 2):   # cb & cr
+                chroma4x4BlkIdx = 0
+                nC = 0
+                for i in range(0, 2):
+                    for j in range(0, 2):
+                        #different nC
+                        logging.debug("decoding blockInx: %d, nC: %d", chroma4x4BlkIdx, nC)
+
+                        #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
+                        #nC = self.__get_nC(x, y)
+                        example_len = 80 if (stream.len-stream.pos)>80 else (stream.len-stream.pos)
+                        logging.debug("following data: %s", stream.peek(example_len).bin)
+                        blocks = stream[stream.pos: stream.len]
+                        Chroma4x4ACLevel, position, temp = cavlc.decode(blocks, nC, 15)
+
+                        temp = stream.read(position)   # drop the decoded data
+                        logging.debug("processed data: %s", temp.bin)
+                        logging.debug("Chroma4x4ACLevel_%d:", chroma4x4BlkIdx)
+                        logging.debug("\n%s" % (Chroma4x4ACLevel))
+
+                        #coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+
+                        chroma4x4BlkIdx = chroma4x4BlkIdx + 1
+        else:
+            # two 8x8 AC are zeros
+            logging.debug("Two Chroma 8x8 AC are zeros")
+
+        return stream.pos
 
     def __get_nC(self, row, col):
         """
