@@ -196,6 +196,25 @@ def processWholeImage():
 
     plt.show()
 
+def process4x4iDCT():
+    # 4x4 block coefficients data set
+    BLOCK_WIDTH = 4
+    dct = np.array([[75, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0]])
+
+    logging.debug("dct: %s", dct)
+
+    idct = Dct2ImgUsingScipy(dct, BLOCK_WIDTH)
+
+    logging.debug("idct: %s", idct)
+
+    # scaling
+    Vm0 = 13
+    block = (idct * 13) * 2
+    logging.debug("block: %s", block)
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,
@@ -213,3 +232,6 @@ if __name__ == "__main__":
 
     # check the whole image DCT&iDCT process
     processWholeImage()
+
+    #check a 4x4 block iDCT process
+    process4x4iDCT()
