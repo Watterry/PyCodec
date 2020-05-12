@@ -25,6 +25,7 @@ import vlc
 import cavlc
 import numpy as np
 import copy
+import matplotlib.pyplot as plt
 
 #class NaluResolver():
 #    def __init__(self):
@@ -269,6 +270,8 @@ class NalParser():
         logging.debug("slice data: %s", self.stream.peek(32))   # check the start data of slice_data
         self.__slice_data()
 
+        return self.coefficients, self.modemap
+
     def __slice_data(self):
         """
         do slice_data() part of H.264 standard
@@ -286,6 +289,7 @@ class NalParser():
         width = int(512)  #TODO: get this from sps & pps
         height = int(512) #TODO: get this from sps & pps
         self.coefficients = np.zeros((width, height), int)
+        self.modemap = np.zeros((width, height), int)
         self.nAnB = np.zeros((int(width/4), int(height/4)), int)
 
         self.blk16x16Idx_x = 0   # x position of 16x16 block in this frame
@@ -401,6 +405,8 @@ class NalParser():
 
         # dupm luma block to image
         self.coefficients[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
+        self.modemap[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
+        
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
 
@@ -534,7 +540,19 @@ def main(h264file):
     pps_parser.parse(pps)
 
     nal_parser = NalParser()
-    nal_parser.parse(nal, sps_parser, pps_parser)
+    coeffs, modemap = nal_parser.parse(nal, sps_parser, pps_parser)
+    np.save("coefficient.npy", coeffs)
+    np.save("modemap.npy", modemap)
+
+    plt.figure()
+    plt.imshow(coeffs, cmap='gray')
+    plt.title("coefficient image")
+
+    plt.figure()
+    plt.imshow(modemap, cmap='gray')
+    plt.title("modemap image")
+
+    plt.show()
 
 if __name__ == '__main__':
     logging.basicConfig(
@@ -545,6 +563,7 @@ if __name__ == '__main__':
             logging.StreamHandler(),
         ]
     )
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
     logging.debug("Unit test for NaluParser")
 
