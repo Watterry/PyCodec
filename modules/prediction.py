@@ -307,7 +307,6 @@ def testCase1():
     plt.show()
 
 def testCase2():
-    qp = 20
     mbWidth = 16
 
     residual = np.load("residual.npy")
