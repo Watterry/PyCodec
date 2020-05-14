@@ -575,13 +575,13 @@ def main(h264file):
     pps_parser.parse(pps)
 
     nal_parser = NalParser()
-    coeffs, modemap = nal_parser.parse(nal, sps_parser, pps_parser)
-    np.save("coefficient.npy", coeffs)
+    residual, modemap = nal_parser.parse(nal, sps_parser, pps_parser)
+    np.save("residual.npy", residual)
     np.save("modemap.npy", modemap)
 
     plt.figure()
-    plt.imshow(coeffs, cmap='gray')
-    plt.title("coefficient image")
+    plt.imshow(residual, cmap='gray')
+    plt.title("residual image")
 
     plt.figure()
     plt.imshow(modemap, cmap='gray')
