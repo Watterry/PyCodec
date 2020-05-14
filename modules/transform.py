@@ -196,9 +196,12 @@ def inverseIntra16x16LumaDCScalingAndTransform(C, QP):
     ls4 = getLevelScaleOfLumaDC(QP)
     print(ls4)
 
-    Y = f * ls4 * pow(2, int(QP/6)-2)
-
-    return Y
+    if QP>=12:
+        Y = f * ls4 * pow(2, int(QP/6)-2)
+        return Y
+    else:
+        Y = ( f * ls4 + pow(2, 1-int(QP/6)) ) / pow(2, 2-int(QP/6))
+        return Y
 
 def inverseReidual4x4ScalingAndTransform(C, QP):
     """
@@ -230,8 +233,8 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     for i in range(0, 4):
         e[i,0] = d[i,0] + d[i,2]
         e[i,1] = d[i,0] - d[i,2]
-        e[i,2] = d[i,1]>>1 - d[i,3]
-        e[i,3] = d[i,1] + d[i,3]>>1
+        e[i,2] = (d[i,1]>>1) - d[i,3]
+        e[i,3] = d[i,1] + (d[i,3]>>1)
 
     print("e:")
     print(e)
@@ -259,8 +262,8 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     for j in range(0, 4):
         g[0,j] = f[0,j] + f[2,j]
         g[1,j] = f[0,j] - f[2,j]
-        g[2,j] = f[1,j]>>1 - f[3,j]
-        g[3,j] = f[1,j] + f[3,j]>>1
+        g[2,j] = (f[1,j]>>1) - f[3,j]
+        g[3,j] = f[1,j] + (f[3,j]>>1)
 
     print("g:")
     print(g)
