@@ -83,13 +83,29 @@ def getVi4ByQP(qp):
     else:
         row = qp%6
 
-    # accroding to formula 7.22 on page 194
+    # according to formula 7.22 on page 194
     Vi4 = np.array([[Vtb[row, 0], Vtb[row, 2], Vtb[row, 0], Vtb[row, 2]],
                     [Vtb[row, 2], Vtb[row, 1], Vtb[row, 2], Vtb[row, 1]],
                     [Vtb[row, 0], Vtb[row, 2], Vtb[row, 0], Vtb[row, 2]],
                     [Vtb[row, 2], Vtb[row, 1], Vtb[row, 2], Vtb[row, 1]]])
 
     return Vi4
+
+def getLevelScaleOfLumaDC(qp):
+    '''
+    get LevelScale matrix by QP value
+    accroding to 8-255 formula on page 136 of [H.264 standard Book]
+    : param qp: the QP enum value in H.264
+    '''
+    row = qp%6
+
+    # according to formula 8-25 on page 136
+    ls4 = np.array([[Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
+                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
+                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
+                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]]])
+
+    return ls4
 
 def forwardTransformAndScaling4x4(X, QP):
     '''
@@ -162,6 +178,111 @@ def forwardHadamardAndScaling4x4(X, QP):
 
     return Y
 
+def inverseIntra16x16LumaDCScalingAndTransform(C, QP):
+    """
+    Scaling and transformation process for luma DC transform coefficients for Intra_16x16 macroblock type
+    According to 8.5.6 on page 136 of [H.264 standard Book]
+    Args:
+        C: input LumaDC data block, currently should be 4x4 square
+        QP: the qp step
+    """
+    #step1: Calculate 4 × 4 inverse transform
+    temp = np.dot(HWd, C)
+    print(temp)
+    f = np.dot(temp, HWd)
+    logging.debug("Inverse Transform:\n %s", f)
+
+    # step2: Scaling and quantization
+    ls4 = getLevelScaleOfLumaDC(QP)
+    print(ls4)
+
+    Y = f * ls4 * pow(2, int(QP/6)-2)
+
+    return Y
+
+def inverseReidual4x4ScalingAndTransform(C, QP):
+    """
+    Scaling and transformation process for residual 4x4 blocks
+    According to 8.5.8 on page 137 of [H.264 standard Book]
+    Args:
+        C: input LumaDC data block, currently should be 4x4 square
+        QP: the qp step
+    """
+    d = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+
+    vi4 = getVi4ByQP(20)
+    print(vi4)
+
+    d = C * vi4 * pow(2, int(20/6))
+    d[0, 0] = C[0, 0]
+    print("d:")
+    print(d)
+
+    e = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+    for i in range(0, 4):
+        e[i,0] = d[i,0] + d[i,2]
+        e[i,1] = d[i,0] - d[i,2]
+        e[i,2] = d[i,1]>>1 - d[i,3]
+        e[i,3] = d[i,1] + d[i,3]>>1
+
+    print("e:")
+    print(e)
+
+    f = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+    for i in range(0, 4):
+        f[i,0] = e[i,0] + e[i,3]
+        f[i,1] = e[i,1] + e[i,2]
+        f[i,2] = e[i,1] - e[i,2]
+        f[i,3] = e[i,0] - e[i,3]
+
+    print("f:")
+    print(f)
+
+
+    g = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+    for j in range(0, 4):
+        g[0,j] = f[0,j] + f[2,j]
+        g[1,j] = f[0,j] - f[2,j]
+        g[2,j] = f[1,j]>>1 - f[3,j]
+        g[3,j] = f[1,j] + f[3,j]>>1
+
+    print("g:")
+    print(g)
+
+    h = np.array([[0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+    for j in range(0, 4):
+        h[0,j] = g[0,j] + g[3,j]
+        h[1,j] = g[1,j] + g[2,j]
+        h[2,j] = g[1,j] - g[2,j]
+        h[3,j] = g[0,j] - g[3,j]
+
+    print("h:")
+    print(h)
+
+    r = np.round( (h + pow(2, 5)) / pow(2, 6) )
+    
+    print(r)
+
 def testCase1():
     test = np.array([[58, 64, 51, 58],
                      [52, 64, 56, 66],
@@ -198,7 +319,7 @@ def testCase1():
     print(img_dct)
 
 def testCase2():
-    dct = np.array([[75, 0, 0, 0],
+    dct = np.array([[0, 0, -2, -1],
                     [0, 0, 0, 0],
                     [0, 0, 0, 0],
                     [0, 0, 0, 0]])
@@ -207,6 +328,36 @@ def testCase2():
     QP = 20
     back = inverseTransformAndScaling4x4(dct, QP)
     logging.debug("Inverse transform and decoding:\n %s", back)
+
+def testLumaDC():
+    luma_dc_dct = np.array([[75, 0, -1, 2],
+                            [3, 1, -1, 1],
+                            [2, 0, 0, 0],
+                            [1, 0, 0, 0]])
+    logging.debug("Luma DC dct data:\n %s", luma_dc_dct)
+
+    QP = 20
+    back = inverseIntra16x16LumaDCScalingAndTransform(luma_dc_dct, QP)
+    logging.debug("Inverse transform and decoding:\n %s", back)
+
+def testResidual4x4():
+    c = np.array([[2158, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0],
+                  [0, 0, 0, 0]])
+
+    # c = np.array([[2002, 1, 0, 0],
+    #               [1, 0, 0, 0],
+    #               [0, 0, 0, 0],
+    #               [0, -1, 0, 0]])
+
+    # c = np.array([[2106, 0, 0, 1],
+    #               [0, 0, 0, 0],
+    #               [0, 0, 0, 0],
+    #               [0, 0, 0, 0]])
+
+    inverseReidual4x4ScalingAndTransform(c, 20)
+
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -220,4 +371,8 @@ if __name__ == "__main__":
 
     #testCase1()
 
-    testCase2()
+    #testCase2()
+
+    testLumaDC()
+
+    testResidual4x4()
