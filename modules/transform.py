@@ -207,8 +207,10 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     Scaling and transformation process for residual 4x4 blocks
     According to 8.5.8 on page 137 of [H.264 standard Book]
     Args:
-        C: input LumaDC data block, currently should be 4x4 square
+        C: input coefficients of residual 4x4 block, with C[0, 0] replaced by LumacDC[0, 0] in Intra16x16 mode
         QP: the qp step
+    Return:
+        r: the reconstruction of residual 4x4 block
     """
     d = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -278,6 +280,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     r = np.floor( (h + pow(2, 5)) / pow(2, 6) )
     
     #logging.debug("r\n%s", r)
+    return r
 
 def testCase1():
     test = np.array([[58, 64, 51, 58],
@@ -352,8 +355,8 @@ def testResidual4x4():
                   [1, -1, 1, 0],
                   [0, 0, 0, 0]])
 
-    inverseReidual4x4ScalingAndTransform(c, 20)
-
+    residual = inverseReidual4x4ScalingAndTransform(c, 20)
+    logging.debug("Inverse:\n %s", residual)
 
 if __name__ == "__main__":
     logging.basicConfig(
