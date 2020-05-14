@@ -263,6 +263,8 @@ class NalParser():
 
         self.slice_qp_delta = self.stream.read('se') #se(v)
         logging.info("  slice_qp_delta: %d", self.slice_qp_delta)
+        self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
+        logging.info("  Slice QP: %d", self.SliceQPy)
 
         if PPS.deblocking_filter_control_present_flag:
             self.disable_deblocking_filter_idc = self.stream.read('ue') #ue(v)
@@ -355,9 +357,11 @@ class NalParser():
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
             (self.mb_type!=0 and self.mb_type!=25)):
             self.mb_qp_delta = self.stream.read('se')
-            self.SliceQPy = 26 + self.pps.pic_init_qp_minus26 + self.slice_qp_delta
             logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
-            logging.info("  Slice QP: %d", self.SliceQPy)
+            #TODO: seems has some bug in below QP calculating
+            self.mb_current_qp = (self.SliceQPy + self.mb_qp_delta + 52) % 52 # the QP of current macroblock
+            logging.info("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
+
 
         #residual
         temp = self.stream[startPos: self.stream.pos]
