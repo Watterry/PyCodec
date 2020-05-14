@@ -26,6 +26,7 @@ import cavlc
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+import transform
 
 #class NaluResolver():
 #    def __init__(self):
@@ -208,6 +209,10 @@ class NalParser():
                                       2. the input data is rbsp_trailing_bits
             spsParser: the sps of current sequence, should be type of SpsParser
             ppsParser: the pps of curretn sequence, should be type of PpsParser
+        
+        Returns:
+            residual of current frame
+            prediction mode map of all macroblock block
         """
         logging.info("slice_header()")
         logging.info("{")
@@ -282,7 +287,7 @@ class NalParser():
         logging.debug("slice data: %s", self.stream.peek(32))   # check the start data of slice_data
         self.__slice_data()
 
-        return self.coefficients, self.modemap
+        return self.residual, self.modemap
 
     def __slice_data(self):
         """
@@ -301,6 +306,7 @@ class NalParser():
         width = int(self.sps.getWidth())
         height = int(self.sps.getHeight())
         self.coefficients = np.zeros((width, height), int)
+        self.residual = np.zeros((width, height), int)
         self.modemap = np.zeros((width, height), int)
         self.nAnB = np.zeros((int(width/4), int(height/4)), int)
 
@@ -379,8 +385,13 @@ class NalParser():
         temp = self.stream.read(position)   # drop the decoded data
         logging.debug("processed data: %s", temp.bin)
         logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
+        
+        # do DC level transform
+        residual_lumDC = transform.inverseIntra16x16LumaDCScalingAndTransform(Intra16x16DCLevel, self.mb_current_qp)
+        logging.debug("residual_lumDC: %s", residual_lumDC)
 
         coeffBlock_16x16 = np.zeros((16, 16), int)
+        residual_16x16 = np.zeros((16, 16), int)
 
         if self.CodedBlockPatternLuma>0:
             luma4x4BlkIdx = 0
@@ -409,6 +420,12 @@ class NalParser():
 
                             coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
+                            #do AC level transform
+                            temp4x4ACLevel = copy.deepcopy(Intra4x4ACLevel.astype(int))
+                            temp4x4ACLevel[0, 0] = residual_lumDC[x, y]
+                            residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
+                            residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+
                             luma4x4BlkIdx = luma4x4BlkIdx + 1
 
         for i in range(0, 4):
@@ -417,10 +434,14 @@ class NalParser():
         logging.debug("Reconstructed 16x16 coefficients:")
         logging.debug("\n%s", coeffBlock_16x16)
 
+        logging.debug("Reconstructed 16x16 residual:")
+        logging.debug("\n%s", residual_16x16)
+
         # dupm luma block to image
         self.coefficients[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
         self.modemap[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
-        
+        self.residual[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(residual_16x16)
+
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
 
