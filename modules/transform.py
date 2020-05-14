@@ -188,13 +188,12 @@ def inverseIntra16x16LumaDCScalingAndTransform(C, QP):
     """
     #step1: Calculate 4 × 4 inverse transform
     temp = np.dot(HWd, C)
-    print(temp)
     f = np.dot(temp, HWd)
     logging.debug("Inverse Transform:\n %s", f)
 
     # step2: Scaling and quantization
     ls4 = getLevelScaleOfLumaDC(QP)
-    print(ls4)
+    #logging.debug("\n%s", ls4)
 
     if QP>=12:
         Y = f * ls4 * pow(2, int(QP/6)-2)
@@ -218,12 +217,12 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
 
 
     vi4 = getVi4ByQP(20)
-    print(vi4)
+    logging.debug(vi4)
 
     d = C * vi4 * pow(2, int(20/6))
     d[0, 0] = C[0, 0]
-    print("d:")
-    print(d)
+    logging.debug("d:")
+    logging.debug("\n%s",d)
 
     e = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -236,8 +235,8 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         e[i,2] = (d[i,1]>>1) - d[i,3]
         e[i,3] = d[i,1] + (d[i,3]>>1)
 
-    print("e:")
-    print(e)
+    logging.debug("e:")
+    logging.debug("\n%s",e)
 
     f = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -250,8 +249,8 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         f[i,2] = e[i,1] - e[i,2]
         f[i,3] = e[i,0] - e[i,3]
 
-    print("f:")
-    print(f)
+    logging.debug("f:")
+    logging.debug("\n%s",f)
 
 
     g = np.array([[0, 0, 0, 0],
@@ -265,8 +264,8 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         g[2,j] = (f[1,j]>>1) - f[3,j]
         g[3,j] = f[1,j] + (f[3,j]>>1)
 
-    print("g:")
-    print(g)
+    logging.debug("g:")
+    logging.debug("\n%s",g)
 
     h = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -279,12 +278,12 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         h[2,j] = g[1,j] - g[2,j]
         h[3,j] = g[0,j] - g[3,j]
 
-    print("h:")
-    print(h)
+    logging.debug("h:")
+    logging.debug("\n%s", h)
 
     r = np.round( (h + pow(2, 5)) / pow(2, 6) )
     
-    print(r)
+    logging.debug("r\n%s", r)
 
 def testCase1():
     test = np.array([[58, 64, 51, 58],
@@ -330,7 +329,7 @@ def testCase2():
 
     QP = 20
     back = inverseTransformAndScaling4x4(dct, QP)
-    logging.debug("Inverse transform and decoding:\n %s", back)
+    logging.debug("Inverse:\n %s", back)
 
 def testLumaDC():
     luma_dc_dct = np.array([[75, 0, -1, 2],
@@ -341,7 +340,7 @@ def testLumaDC():
 
     QP = 20
     back = inverseIntra16x16LumaDCScalingAndTransform(luma_dc_dct, QP)
-    logging.debug("Inverse transform and decoding:\n %s", back)
+    logging.debug("Inverse:\n %s", back)
 
 def testResidual4x4():
     c = np.array([[2158, 0, 0, 0],
