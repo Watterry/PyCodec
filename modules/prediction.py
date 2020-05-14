@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
-import dct_formula_2D
 import sys
 import ZigZag
 import tools
@@ -311,23 +310,18 @@ def testCase2():
     qp = 20
     mbWidth = 16
 
-    coeffs = np.load("coefficient.npy")
+    residual = np.load("residual.npy")
     modemap = np.load("modemap.npy")
 
-    residual = dct_formula_2D.Dct2ImgUsingScipy(coeffs, 4)
     image = inverseIntraPrediction(residual, modemap, mbWidth)
-
-    plt.figure()
-    plt.imshow(coeffs, cmap='gray')
-    plt.title("coeffs image")
-
-    plt.figure()
-    plt.imshow(modemap, cmap='gray')
-    plt.title("ModeMap image")
 
     plt.figure()
     plt.imshow(residual, cmap='gray')
     plt.title("residual image")
+
+    plt.figure()
+    plt.imshow(modemap, cmap='gray')
+    plt.title("ModeMap image")
 
     plt.figure()
     plt.imshow(image, cmap='gray')
