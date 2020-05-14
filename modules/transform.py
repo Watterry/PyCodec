@@ -221,8 +221,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
 
     d = C * vi4 * pow(2, int(20/6))
     d[0, 0] = C[0, 0]
-    logging.debug("d:")
-    logging.debug("\n%s",d)
+    #logging.debug("d:\n%s",d)
 
     e = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -235,8 +234,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         e[i,2] = (d[i,1]>>1) - d[i,3]
         e[i,3] = d[i,1] + (d[i,3]>>1)
 
-    logging.debug("e:")
-    logging.debug("\n%s",e)
+    #logging.debug("e:\n%s",e)
 
     f = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -249,9 +247,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         f[i,2] = e[i,1] - e[i,2]
         f[i,3] = e[i,0] - e[i,3]
 
-    logging.debug("f:")
-    logging.debug("\n%s",f)
-
+    #logging.debug("f:\n%s",f)
 
     g = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -264,8 +260,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         g[2,j] = (f[1,j]>>1) - f[3,j]
         g[3,j] = f[1,j] + (f[3,j]>>1)
 
-    logging.debug("g:")
-    logging.debug("\n%s",g)
+    #logging.debug("g:\n%s",g)
 
     h = np.array([[0, 0, 0, 0],
                   [0, 0, 0, 0],
@@ -278,12 +273,11 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
         h[2,j] = g[1,j] - g[2,j]
         h[3,j] = g[0,j] - g[3,j]
 
-    logging.debug("h:")
-    logging.debug("\n%s", h)
+    #logging.debug("h:\n%s", h)
 
-    r = np.round( (h + pow(2, 5)) / pow(2, 6) )
+    r = np.floor( (h + pow(2, 5)) / pow(2, 6) )
     
-    logging.debug("r\n%s", r)
+    #logging.debug("r\n%s", r)
 
 def testCase1():
     test = np.array([[58, 64, 51, 58],
@@ -343,20 +337,20 @@ def testLumaDC():
     logging.debug("Inverse:\n %s", back)
 
 def testResidual4x4():
-    c = np.array([[2158, 0, 0, 0],
-                  [0, 0, 0, 0],
-                  [0, 0, 0, 0],
-                  [0, 0, 0, 0]])
+    # c = np.array([[2158, 0, 0, 0],
+    #               [0, 0, 0, 0],
+    #               [0, 0, 0, 0],
+    #               [0, 0, 0, 0]])
 
     # c = np.array([[2002, 1, 0, 0],
     #               [1, 0, 0, 0],
     #               [0, 0, 0, 0],
     #               [0, -1, 0, 0]])
 
-    # c = np.array([[2106, 0, 0, 1],
-    #               [0, 0, 0, 0],
-    #               [0, 0, 0, 0],
-    #               [0, 0, 0, 0]])
+    c = np.array([[1898, -2, 1, -1],
+                  [0, 0, 0, 0],
+                  [1, -1, 1, 0],
+                  [0, 0, 0, 0]])
 
     inverseReidual4x4ScalingAndTransform(c, 20)
 
