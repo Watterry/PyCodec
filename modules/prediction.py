@@ -1,3 +1,20 @@
+# prediction and inverse prediction, reconstrcut of frame
+#
+# Copyright (C) <2020>  <cookwhy@qq.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import r_
@@ -7,36 +24,38 @@ import tools
 import logging
 import copy
 
-# 16x16 block's Mode 0 (vertical) prediction mode
+#according to Table 8-3 on page 106 of [H.264 standard Book]
+
+# 16x16 block's Mode 0 (Vertical) prediction mode
 def mode0_16x16(block, H):
     size = block.shape
     temp = np.zeros(size)
-    for i in range(0, size[0]):
+    for i in range(0, size[1]):
         temp[i,:] = H
 
     #print(temp)
     diff = tools.SAE(block, temp)
     return temp, diff
 
-# 16x16 block's Mode 1 (horizontal) prediction mode
+# 16x16 block's Mode 1 (Horizontal) prediction mode
 def mode1_16x16(block, V):
     size = block.shape
     temp = np.zeros(size)
-    for i in range(0, size[1]):
-        temp[:,i] = V
+    for j in range(0, size[1]):
+        temp[:,j] = V
 
     #print(temp)
     diff = tools.SAE(block, temp)
     return temp, diff
 
-# 16x16 block's Mode 2 (mean) prediction mode
+# 16x16 block's Mode 2 (DC) prediction mode
 def mode2_16x16(block, H, V):
     size = block.shape
 
-    mean = (np.sum(H) + np.sum(V)) / (H.size+V.size)
+    mean = ((np.sum(H) + np.sum(V)) + 16) / pow(2, 5)
 
     temp = np.zeros(size)
-    temp[:] = mean
+    temp[:] = mean.astype(int)
 
     #print(temp)
     diff = tools.SAE(block, temp)
@@ -231,11 +250,11 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
 
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
-
+            logging.debug("blk16x16Idx x: %d, y: %d", i/16, j/16)
             if (i==0) and (j==0):  # for left-top block, just copy the data
-                H[:] = 128
-                V[:] = 128
-                P = 128
+                H[:] = int(128)
+                V[:] = int(128)
+                P = int(128)
 
             elif i==0 and j!=0:
                 H[:] = predict[i, j-1]
@@ -256,13 +275,13 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
             temp = copy.deepcopy(predict[i:(i+step),j:(j+step)])
             block = copy.deepcopy(predict[i:(i+step),j:(j+step)])
             if mode_map[i+1, j+1] == 0:
-                logging.debug("Prediction Mode DC")
+                logging.debug("Prediction Mode Vertical")
                 block, diff = mode0_16x16(temp, H)
             elif mode_map[i+1, j+1] == 1:
                 logging.debug("Prediction Mode Horizontal")
                 block, diff = mode1_16x16(temp, V)
             elif mode_map[i+1, j+1] == 2:
-                logging.debug("Prediction Mode Vertical")
+                logging.debug("Prediction Mode DC")
                 block, diff = mode2_16x16(temp, H, V)
             elif mode_map[i+1, j+1] == 3:
                 logging.debug("Prediction Mode Plane")
