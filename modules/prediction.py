@@ -23,48 +23,67 @@ import ZigZag
 import tools
 import logging
 import copy
+import dct_formula_2D
 
-#according to Table 8-3 on page 106 of [H.264 standard Book]
-
-# 16x16 block's Mode 0 (Vertical) prediction mode
-def mode0_16x16(block, H):
-    size = block.shape
-    temp = np.zeros(size)
+# the function mode0_16x16 to mode3_16x16 is according to Table 8-3 on page 106 of [H.264 standard Book]
+def mode0_16x16(size, H):
+    """
+    16x16 block's Mode 0 (Vertical) prediction mode
+    Args:
+        size: the prediction block's size, should be 16x16 here
+        H: the horizontal predict value
+    Return:
+        the prediction result
+    """
+    temp = np.zeros(size, int)
     for i in range(0, size[1]):
         temp[i,:] = H
 
     #print(temp)
-    diff = tools.SAE(block, temp)
-    return temp, diff
+    return temp
 
-# 16x16 block's Mode 1 (Horizontal) prediction mode
-def mode1_16x16(block, V):
-    size = block.shape
-    temp = np.zeros(size)
+def mode1_16x16(size, V):
+    """
+    16x16 block's Mode 1 (Horizontal) prediction mode
+    Args:
+        size: the prediction block's size, should be 16x16 here
+        H: the horizontal predict value
+    Return:
+        the prediction result
+    """
+    temp = np.zeros(size, int)
     for j in range(0, size[1]):
         temp[:,j] = V
 
-    #print(temp)
-    diff = tools.SAE(block, temp)
-    return temp, diff
+    return temp
 
-# 16x16 block's Mode 2 (DC) prediction mode
-def mode2_16x16(block, H, V):
-    size = block.shape
+def mode2_16x16(size, H, V):
+    """
+    16x16 block's Mode 2 (DC) prediction mode
+    Args:
+        size: the prediction block's size, should be 16x16 here
+        H: the horizontal predict value
+    Return:
+        the prediction result
+    """
 
-    mean = ((np.sum(H) + np.sum(V)) + 16) / pow(2, 5)
+    mean = ((np.sum(H) + np.sum(V)) + 16) >> 5
 
-    temp = np.zeros(size)
+    temp = np.zeros(size, int)
     temp[:] = mean.astype(int)
 
-    #print(temp)
-    diff = tools.SAE(block, temp)
-    return temp, diff
+    return temp
 
-# 16x16 block's Mode 3 (plan) prediction mode
 # TODO: this function should be verified by x264 related code
-def mode3_16x16(block, H, V, P):
-    size = block.shape
+def mode3_16x16(size, H, V, P):
+    """
+    16x16 block's Mode 3 (plan) prediction mode
+    Args:
+        size: the prediction block's size, should be 16x16 here
+        H: the horizontal predict value
+    Return:
+        the prediction result
+    """
 
     h = 0
     v = 0
@@ -91,15 +110,20 @@ def mode3_16x16(block, H, V, P):
         for j in range(0,8):
             temp[i,j] = (a + b*(i-7) + c*(j-7) + 16) / 32
 
-    #print(temp)
-    diff = tools.SAE(block, temp)
-    return temp, diff
+    return temp
 
 def pickTheBestMode(block, H, V, P):
-    temp0, diff0 = mode0_16x16(block, H)
-    temp1, diff1 = mode1_16x16(block, V)
-    temp2, diff2 = mode2_16x16(block, H, V)
-    temp3, diff3 = mode3_16x16(block, H, V, P)
+    temp0 = mode0_16x16(block.shape, H)
+    diff0 = tools.SAE(block, temp0)
+    
+    temp1 = mode1_16x16(block.shape, V)
+    diff1 = tools.SAE(block, temp1)
+
+    temp2 = mode2_16x16(block.shape, H, V)
+    diff2 = tools.SAE(block, temp2)
+
+    temp3 = mode3_16x16(block.shape, H, V, P)
+    diff3 = tools.SAE(block, temp3)
 
     list1, list2 = [temp0, temp1, temp2, temp3], [diff0, diff1, diff2, diff3]
     mode = list2.index(min(list2))
@@ -242,6 +266,7 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
     imsize = residual.shape
     predict = np.zeros(imsize, int)    # intra prediction result, motion compensation
     step = mb_step
+    size = (step, step)
 
     # init value
     H = predict[0, 0:(0+step)].copy()
@@ -250,6 +275,7 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
 
     for i in r_[:imsize[0]:step]:
         for j in r_[:imsize[1]:step]:
+            logging.debug("----------------------------------------")
             logging.debug("blk16x16Idx x: %d, y: %d", i/16, j/16)
             if (i==0) and (j==0):  # for left-top block, just copy the data
                 H[:] = int(128)
@@ -272,20 +298,19 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
                 P = predict[i-1, j-1]
 
             #get mode and generate predction image
-            temp = copy.deepcopy(predict[i:(i+step),j:(j+step)])
-            block = copy.deepcopy(predict[i:(i+step),j:(j+step)])
+            block = np.zeros((step, step), int)
             if mode_map[i+1, j+1] == 0:
                 logging.debug("Prediction Mode Vertical")
-                block, diff = mode0_16x16(temp, H)
+                block = mode0_16x16(size, H)
             elif mode_map[i+1, j+1] == 1:
                 logging.debug("Prediction Mode Horizontal")
-                block, diff = mode1_16x16(temp, V)
+                block = mode1_16x16(size, V)
             elif mode_map[i+1, j+1] == 2:
                 logging.debug("Prediction Mode DC")
-                block, diff = mode2_16x16(temp, H, V)
+                block = mode2_16x16(size, H, V)
             elif mode_map[i+1, j+1] == 3:
                 logging.debug("Prediction Mode Plane")
-                block, diff = mode3_16x16(temp, H, V, P)
+                block = mode3_16x16(size, H, V, P)
             else:
                 logging.error("Predict Mode Error!")
 
@@ -318,7 +343,7 @@ def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
 def testCase1():
     qp = 15
     step = 16
-    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(float)
+    im = plt.imread("E:/liumangxuxu/code/PyCodec/modules/lena2.tif").astype(int)
     print(im.shape)
     residual_1D, mode_1D = predictImage(im, qp, step)
 
@@ -336,8 +361,8 @@ def testCase1():
 def testCase2():
     mbWidth = 16
 
-    residual = np.load("residual.npy")
-    modemap = np.load("modemap.npy")
+    residual = np.load("E:/liumangxuxu/code/PyCodec/modules/residual.npy")
+    modemap = np.load("E:/liumangxuxu/code/PyCodec/modules/modemap.npy")
 
     image = inverseIntraPrediction(residual, modemap, mbWidth)
 
