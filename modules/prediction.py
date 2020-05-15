@@ -208,20 +208,21 @@ def predictImage(im, qp, block_step):
     #return dct_1D   #temp test code
     return dct_res_1D, mode_1D
 
-def inverseIntraPrediction(residual, mode_map, step):
+def inverseIntraPrediction(residual, mode_map, mb_step):
     """
     image intra predict inverse operation
 
     Args:
         residual: residual image after coefficient inverse operation
         mode_map: the prediction mode map of residual image
-        step: macroblock's width
+        mb_step: macroblock's width
     
     Returns:
         the recovered original image
     """
     imsize = residual.shape
     predict = np.zeros(imsize, int)    # intra prediction result, motion compensation
+    step = mb_step
 
     # init value
     H = predict[0, 0:(0+step)].copy()
@@ -255,17 +256,24 @@ def inverseIntraPrediction(residual, mode_map, step):
             temp = copy.deepcopy(predict[i:(i+step),j:(j+step)])
             block = copy.deepcopy(predict[i:(i+step),j:(j+step)])
             if mode_map[i+1, j+1] == 0:
+                logging.debug("Prediction Mode DC")
                 block, diff = mode0_16x16(temp, H)
             elif mode_map[i+1, j+1] == 1:
+                logging.debug("Prediction Mode Horizontal")
                 block, diff = mode1_16x16(temp, V)
             elif mode_map[i+1, j+1] == 2:
+                logging.debug("Prediction Mode Vertical")
                 block, diff = mode2_16x16(temp, H, V)
             elif mode_map[i+1, j+1] == 3:
+                logging.debug("Prediction Mode Plane")
                 block, diff = mode3_16x16(temp, H, V, P)
             else:
                 logging.error("Predict Mode Error!")
 
             predict[i:(i+step),j:(j+step)] = residual[i:(i+step),j:(j+step)] + block
+            logging.debug("residual Values:\n%s", residual[i:(i+step),j:(j+step)])
+            logging.debug("Predicted Values:\n%s", block)
+            logging.debug("Decoded Y Values:\n%s", predict[i:(i+step),j:(j+step)])
 
     return predict
 
