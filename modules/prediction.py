@@ -365,6 +365,7 @@ if __name__ == "__main__":
         ]
     )
     logging.getLogger('matplotlib.font_manager').disabled = True
+    np.set_printoptions(threshold=sys.maxsize)
 
     np.set_printoptions(suppress=True)
 

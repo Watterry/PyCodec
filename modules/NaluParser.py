@@ -25,6 +25,7 @@ import vlc
 import cavlc
 import numpy as np
 import copy
+import sys
 import matplotlib.pyplot as plt
 import transform
 
@@ -438,9 +439,11 @@ class NalParser():
         logging.debug("\n%s", residual_16x16)
 
         # dupm luma block to image
-        self.coefficients[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(coeffBlock_16x16)
-        self.modemap[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
-        self.residual[self.blk16x16Idx_x*16:(self.blk16x16Idx_x+1)*16, self.blk16x16Idx_y*16:(self.blk16x16Idx_y+1)*16] = copy.deepcopy(residual_16x16)
+        row = self.blk16x16Idx_y*16
+        col = self.blk16x16Idx_x*16
+        self.coefficients[row:(row+16), col:(col+16)] = copy.deepcopy(coeffBlock_16x16)
+        self.modemap[row:(row+16), col:(col+16)] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
+        self.residual[row:(row+16), col:(col+16)] = copy.deepcopy(residual_16x16)
 
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
