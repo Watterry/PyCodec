@@ -62,15 +62,31 @@ def mode2_16x16(size, H, V):
     16x16 block's Mode 2 (DC) prediction mode
     Args:
         size: the prediction block's size, should be 16x16 here
-        H: the horizontal predict value
+        H: the horizontal predict value, -1 means not available
+        V: the vertical predict value, -1 means not available
     Return:
         the prediction result
     """
-
-    mean = ((np.sum(H) + np.sum(V)) + 16) >> 5
+    H_Available = False if np.sum(H<0) > 0 else True
+    V_Available = False if np.sum(V<0) > 0 else True
+    logging.debug("H: %s", H)
+    logging.debug("V: %s", V)
+    mean = 0
+    if H_Available and V_Available:
+        logging.debug("H & V are available")
+        mean = ((np.sum(H) + np.sum(V)) + 16) >> 5
+    elif H_Available and (not V_Available):
+        logging.debug("H are available")
+        mean =  (np.sum(H)+8) >> 4
+    elif (not H_Available) and V_Available:
+        logging.debug("V are available")
+        mean =  (np.sum(V)+8) >> 4
+    else:
+        logging.debug("H & V are not available")
+        mean = 128
 
     temp = np.zeros(size, int)
-    temp[:] = mean.astype(int)
+    temp[:] = int(mean)
 
     return temp
 
@@ -81,6 +97,8 @@ def mode3_16x16(size, H, V, P):
     Args:
         size: the prediction block's size, should be 16x16 here
         H: the horizontal predict value
+        V: the vertical predict value
+        P: the P[-1, -1] value
     Return:
         the prediction result
     """
@@ -90,25 +108,25 @@ def mode3_16x16(size, H, V, P):
 
     for x in range(0,8):
         if (x==7):
-            h = h + (x+1)*(V[8+x]-P)   # use P point value to replace p[-1, -1]
+            h = h + (x+1)*(H[8+x]-P)   # use P point value to replace p[-1, -1]
         else:
-            h = h + (x+1)*(V[8+x]-V[6-x])
+            h = h + (x+1)*(H[8+x]-H[6-x])
 
     for y in range(0,8):
         if (y==7):
-            v = v + (y+1)*(H[8+y]-P)   # use P point value to replace p[-1, -1]
+            v = v + (y+1)*(V[8+y]-P)   # use P point value to replace p[-1, -1]
         else:
-            v = v + (y+1)*(H[8+y]-H[6-y])
+            v = v + (y+1)*(V[8+y]-V[6-y])
 
     a = 16*( H[15] + V[15] )
-    b = ( 5*h + 32 ) / 64
-    c = ( 5*v + 32 ) / 64
+    b = ( 5*h + 32 ) >> 6
+    c = ( 5*v + 32 ) >> 6
 
-    temp = np.zeros(size)
+    temp = np.zeros(size, int)
 
-    for i in range(0,8):
-        for j in range(0,8):
-            temp[i,j] = (a + b*(i-7) + c*(j-7) + 16) / 32
+    for i in range(0,16):
+        for j in range(0,16):
+            temp[i,j] = (a + b*(i-7) + c*(j-7) + 16) >> 5
 
     return temp
 
@@ -283,13 +301,13 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
                 P = int(128)
 
             elif i==0 and j!=0:
-                H[:] = predict[i, j-1]
+                H[:] = -1   # -1 means not available
                 V = predict[i:(i+step),j-1]
                 P = predict[i, j-1]
                 
             elif j==0 and i!=0:
                 H = predict[i-1,j:(j+step)]
-                V[:] = predict[i-1, j]
+                V[:] = -1   # -1 means not available
                 P = predict[i-1, j]
 
             else:
