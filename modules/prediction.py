@@ -35,6 +35,7 @@ def mode0_16x16(size, H):
     Return:
         the prediction result
     """
+    logging.debug("H: %s", H)
     temp = np.zeros(size, int)
     for i in range(0, size[1]):
         temp[i,:] = H
@@ -51,6 +52,7 @@ def mode1_16x16(size, V):
     Return:
         the prediction result
     """
+    logging.debug("V: %s", V)
     temp = np.zeros(size, int)
     for j in range(0, size[1]):
         temp[:,j] = V
@@ -102,7 +104,8 @@ def mode3_16x16(size, H, V, P):
     Return:
         the prediction result
     """
-
+    logging.debug("H: %s", H)
+    logging.debug("V: %s", V)
     h = 0
     v = 0
 
@@ -282,13 +285,13 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
         the recovered original image
     """
     imsize = residual.shape
-    predict = np.zeros(imsize, int)    # intra prediction result, motion compensation
+    reconstruted = np.zeros(imsize, int)    # intra prediction result, motion compensation
     step = mb_step
     size = (step, step)
 
     # init value
-    H = predict[0, 0:(0+step)].copy()
-    V = predict[0:(0+step), 0].copy()
+    H = reconstruted[0, 0:(0+step)].copy()
+    V = reconstruted[0:(0+step), 0].copy()
     P = 128
 
     for i in r_[:imsize[0]:step]:
@@ -302,42 +305,42 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
 
             elif i==0 and j!=0:
                 H[:] = -1   # -1 means not available
-                V = predict[i:(i+step),j-1]
-                P = predict[i, j-1]
+                V = reconstruted[i:(i+step),j-1]
+                P = reconstruted[i, j-1]
                 
             elif j==0 and i!=0:
-                H = predict[i-1,j:(j+step)]
+                H = reconstruted[i-1,j:(j+step)]
                 V[:] = -1   # -1 means not available
-                P = predict[i-1, j]
+                P = reconstruted[i-1, j]
 
             else:
-                H = predict[i-1,j:(j+step)]
-                V = predict[i:(i+step),j-1]
-                P = predict[i-1, j-1]
+                H = reconstruted[i-1,j:(j+step)]
+                V = reconstruted[i:(i+step),j-1]
+                P = reconstruted[i-1, j-1]
 
             #get mode and generate predction image
-            block = np.zeros((step, step), int)
+            predicted = np.zeros((step, step), int)
             if mode_map[i+1, j+1] == 0:
                 logging.debug("Prediction Mode Vertical")
-                block = mode0_16x16(size, H)
+                predicted = mode0_16x16(size, H)
             elif mode_map[i+1, j+1] == 1:
                 logging.debug("Prediction Mode Horizontal")
-                block = mode1_16x16(size, V)
+                predicted = mode1_16x16(size, V)
             elif mode_map[i+1, j+1] == 2:
                 logging.debug("Prediction Mode DC")
-                block = mode2_16x16(size, H, V)
+                predicted = mode2_16x16(size, H, V)
             elif mode_map[i+1, j+1] == 3:
                 logging.debug("Prediction Mode Plane")
-                block = mode3_16x16(size, H, V, P)
+                predicted = mode3_16x16(size, H, V, P)
             else:
                 logging.error("Predict Mode Error!")
 
-            predict[i:(i+step),j:(j+step)] = residual[i:(i+step),j:(j+step)] + block
+            reconstruted[i:(i+step),j:(j+step)] = residual[i:(i+step),j:(j+step)] + predicted
             logging.debug("residual Values:\n%s", residual[i:(i+step),j:(j+step)])
-            logging.debug("Predicted Values:\n%s", block)
-            logging.debug("Decoded Y Values:\n%s", predict[i:(i+step),j:(j+step)])
+            logging.debug("Predicted Values:\n%s", predicted)
+            logging.debug("Decoded Y Values:\n%s", reconstruted[i:(i+step),j:(j+step)])
 
-    return predict
+    return reconstruted
 
 def inversePredictImage(binary, mode_1D, qp, m, n, block_step):
     '''
