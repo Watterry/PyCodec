@@ -401,8 +401,8 @@ def testCase1():
 def testCase2():
     mbWidth = 16
 
-    residual = np.load("E:/liumangxuxu/code/PyCodec/modules/residual.npy")
-    modemap = np.load("E:/liumangxuxu/code/PyCodec/modules/modemap.npy")
+    residual = np.load("../test/residual.npy")
+    modemap = np.load("../test/modemap.npy")
 
     image = inverseIntraPrediction(residual, modemap, mbWidth)
 
