@@ -92,6 +92,23 @@ def mode2_16x16(size, H, V):
 
     return temp
 
+def Clip3(x, y, z):
+    """
+    According to page 10 of [H.264 standard Book]
+    """
+    if z<x:
+        return x
+    elif z > y:
+        return y
+    else:
+        return z
+
+def Clip1(x):
+    """
+    According to page 10 of [H.264 standard Book]
+    """
+    return Clip3( int(0), int(255), x)
+
 # TODO: this function should be verified by x264 related code
 def mode3_16x16(size, H, V, P):
     """
@@ -106,6 +123,7 @@ def mode3_16x16(size, H, V, P):
     """
     logging.debug("H: %s", H)
     logging.debug("V: %s", V)
+    logging.debug("p: %d", P)
     h = 0
     v = 0
 
@@ -127,9 +145,10 @@ def mode3_16x16(size, H, V, P):
 
     temp = np.zeros(size, int)
 
-    for i in range(0,16):
-        for j in range(0,16):
-            temp[i,j] = (a + b*(i-7) + c*(j-7) + 16) >> 5
+    for x in range(0,16):
+        for y in range(0,16):
+            pred = int( (a + b*(x-7) + c*(y-7) + 16) >> 5 )
+            temp[y,x] = Clip1( pred )   # Attention: here x, y is inverse of matrix [y,x]
 
     return temp
 
@@ -305,17 +324,17 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
 
             elif i==0 and j!=0:
                 H[:] = -1   # -1 means not available
-                V = reconstruted[i:(i+step),j-1]
+                V = reconstruted[i:(i+step),j-1].copy()
                 P = reconstruted[i, j-1]
                 
             elif j==0 and i!=0:
-                H = reconstruted[i-1,j:(j+step)]
+                H = reconstruted[i-1,j:(j+step)].copy()
                 V[:] = -1   # -1 means not available
                 P = reconstruted[i-1, j]
 
             else:
-                H = reconstruted[i-1,j:(j+step)]
-                V = reconstruted[i:(i+step),j-1]
+                H = reconstruted[i-1,j:(j+step)].copy()
+                V = reconstruted[i:(i+step),j-1].copy()
                 P = reconstruted[i-1, j-1]
 
             #get mode and generate predction image
@@ -335,7 +354,7 @@ def inverseIntraPrediction(residual, mode_map, mb_step):
             else:
                 logging.error("Predict Mode Error!")
 
-            reconstruted[i:(i+step),j:(j+step)] = residual[i:(i+step),j:(j+step)] + predicted
+            reconstruted[i:(i+step),j:(j+step)] = (residual[i:(i+step),j:(j+step)] + predicted).copy()
             logging.debug("residual Values:\n%s", residual[i:(i+step),j:(j+step)])
             logging.debug("Predicted Values:\n%s", predicted)
             logging.debug("Decoded Y Values:\n%s", reconstruted[i:(i+step),j:(j+step)])
