@@ -19,6 +19,7 @@ import logging
 from h26x_extractor import h26x_parser
 from bitstring import BitStream, BitArray
 from NaluParser import *
+import prediction
 
 def get_sps(bytes):
     # do something with the NALU bytes
@@ -66,8 +67,23 @@ def main(h264file):
     pps_parser.parse(pps)
 
     nal_parser = NalParser()
-    nal_parser.parse(nal, sps_parser, pps_parser)
+    residual, modemap = nal_parser.parse(nal, sps_parser, pps_parser)
     
+    image = prediction.inverseIntraPrediction(residual, modemap, 16)
+
+    plt.figure()
+    plt.imshow(residual, cmap='gray')
+    plt.title("residual image")
+
+    plt.figure()
+    plt.imshow(modemap, cmap='gray')
+    plt.title("ModeMap image")
+
+    plt.figure()
+    plt.imshow(image, cmap='gray')
+    plt.title("Inverse image")
+
+    plt.show()
 
 if __name__ == '__main__':
     logging.basicConfig(
@@ -78,5 +94,6 @@ if __name__ == '__main__':
             logging.StreamHandler(),
         ]
     )
+    logging.getLogger('matplotlib.font_manager').disabled = True
 
     main("../test/lena_x264_baseline_I_16x16.264")
