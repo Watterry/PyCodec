@@ -29,6 +29,20 @@ python3 setup.py install
 1. Decode Y component of image.
 2. Decode 16x16 intra frame.
 
+# examples
+
+1. Test inverse intraprediction, using testCase2()
+
+```Python
+python3 prediction.py
+```
+
+2. Test CAVLC keyframe decoding, using
+
+```Python
+python3 H264Decoder.py
+```
+
 # TODO
 
 1. H.264 CABAC decoding process
