@@ -438,7 +438,7 @@ class NalParser():
         logging.debug("Reconstructed 16x16 residual:")
         logging.debug("\n%s", residual_16x16)
 
-        # dupm luma block to image
+        # dump luma block to image
         row = self.blk16x16Idx_y*16
         col = self.blk16x16Idx_x*16
         self.coefficients[row:(row+16), col:(col+16)] = copy.deepcopy(coeffBlock_16x16)
