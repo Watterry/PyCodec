@@ -310,6 +310,7 @@ class NalParser():
         self.residual = np.zeros((height, width), int)
         self.modemap = np.zeros((height, width), int)
         self.nAnB = np.zeros((int(height/4), int(width/4)), int)
+        self.nAnB_UV = np.zeros((2, int(height/8), int(width/8)), int)
 
         self.blk16x16Idx_x = 0   # x position of 16x16 block in this frame
         self.blk16x16Idx_y = 0   # y position of 16x16 block in this frame
@@ -407,7 +408,7 @@ class NalParser():
                             abs_col = self.blk16x16Idx_x*4 + y
                             nC = self.__get_nC(abs_row, abs_col)
                             logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
-                            logging.debug("x, y in nAnB matrix: %d, %d", abs_row, abs_col)
+                            logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
                             
                             example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
                             logging.debug("following data: %s", self.stream.peek(example_len).bin)
@@ -478,12 +479,15 @@ class NalParser():
                         #different nC
                         logging.debug("decoding blockInx: %d, nC: %d", chroma4x4BlkIdx, nC)
 
-                        #logging.debug("x, y in nAnB matrix: %d, %d", x, y)
-                        #nC = self.__get_nC(x, y)
+                        abs_row = self.blk16x16Idx_y*2 + i
+                        abs_col = self.blk16x16Idx_x*2 + j
+                        logging.debug("row, col in nAnB_UV matrix: %d, %d", abs_row, abs_col)
+                        nC = self.__get_nC_UV(m, abs_row, abs_col)
+                        
                         example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
                         logging.debug("following data: %s", self.stream.peek(example_len).bin)
                         blocks = self.stream[self.stream.pos: self.stream.len]
-                        Chroma4x4ACLevel, position, temp = cavlc.decode(blocks, nC, 15)
+                        Chroma4x4ACLevel, position, self.nAnB_UV[m][abs_row,abs_col] = cavlc.decode(blocks, nC, 15)
 
                         temp = self.stream.read(position)   # drop the decoded data
                         logging.debug("processed data: %s", temp.bin)
@@ -540,6 +544,42 @@ class NalParser():
         else:
             nA = self.nAnB[row, col-1]
             nB = self.nAnB[row-1, col]
+            nC = (nA + nB + 1) >> 1
+
+        return nC
+
+    def __get_nC_UV(self, plane, row, col):
+        """
+        calculate nC of current 4x4 block
+        Args:
+            plane: U plane or V plane
+            row: the row of current nC block
+            col: the coloum of current nC block
+        Returns:
+            the nC value of current block
+        """
+        nA = 0
+        nB = 0
+        nC = 0
+
+        i = row - 1
+        j = col - 1
+
+        if row==0 and col==0:
+            nA = 0
+            nB = 0
+            nC = nA + nB
+        elif row==0:
+            nA = self.nAnB_UV[plane][row, col-1]
+            nB = 0
+            nC = nA + nB
+        elif col==0:
+            nA = 0
+            nB = self.nAnB_UV[plane][row-1, col]
+            nC = nA + nB
+        else:
+            nA = self.nAnB_UV[plane][row, col-1]
+            nB = self.nAnB_UV[plane][row-1, col]
             nC = (nA + nB + 1) >> 1
 
         return nC
