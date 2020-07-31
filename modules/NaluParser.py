@@ -306,10 +306,10 @@ class NalParser():
 
         width = int(self.sps.getWidth())
         height = int(self.sps.getHeight())
-        self.coefficients = np.zeros((width, height), int)
-        self.residual = np.zeros((width, height), int)
-        self.modemap = np.zeros((width, height), int)
-        self.nAnB = np.zeros((int(width/4), int(height/4)), int)
+        self.coefficients = np.zeros((height, width), int)
+        self.residual = np.zeros((height, width), int)
+        self.modemap = np.zeros((height, width), int)
+        self.nAnB = np.zeros((int(height/4), int(width/4)), int)
 
         self.blk16x16Idx_x = 0   # x position of 16x16 block in this frame
         self.blk16x16Idx_y = 0   # y position of 16x16 block in this frame
@@ -448,6 +448,10 @@ class NalParser():
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
 
+        # deifne UV plane
+        UV_plane_16x16 = np.zeros((2, 8, 8), int)
+        ChromaDCLevel = np.zeros((2, 2, 2), int)
+
         # chroma DC level, accroding to page 75 on [H.264 standard Book]
         logging.debug("Decoding Chroma DC level")
         example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
@@ -456,11 +460,11 @@ class NalParser():
         if self.CodedBlockPatternChroma>0:
             for i in range(0, 2):
                 blocks = self.stream[self.stream.pos: self.stream.len]
-                ChromaDCLevel, position, temp = cavlc.decode(blocks, -1, 4)
+                ChromaDCLevel[i], position, temp = cavlc.decode(blocks, -1, 4)
                 temp = self.stream.read(position)   # drop the decoded data
                 logging.debug("processed data: %s", temp.bin)
                 logging.debug("ChromaDCLevel_%d:", i)
-                logging.debug("\n%s" % (ChromaDCLevel))
+                logging.debug("\n%s" % (ChromaDCLevel[i]))
         else:
             # two DC are zeros
             logging.debug("Two Chroma DC are zeros")
@@ -486,12 +490,24 @@ class NalParser():
                         logging.debug("Chroma4x4ACLevel_%d:", chroma4x4BlkIdx)
                         logging.debug("\n%s" % (Chroma4x4ACLevel))
 
-                        #coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+                        Chroma4x4ACLevel[0, 0] = ChromaDCLevel[m][i, j]
+                        UV_plane_16x16[m][i*4:(i*4+4), j*4:(j*4+4)] = copy.deepcopy(Chroma4x4ACLevel)
 
                         chroma4x4BlkIdx = chroma4x4BlkIdx + 1
         else:
             # two 8x8 AC are zeros
             logging.debug("Two Chroma 8x8 AC are zeros")
+            # replace DC element
+            for m in range(0, 2):   # cb & cr
+                for i in range(0, 2):
+                    for j in range(0, 2):
+                        UV_plane_16x16[m][i*4, j*4] = ChromaDCLevel[m][i, j]
+
+        logging.debug("Reconstructed 8x8 U plane coefficients:")
+        logging.debug("\n%s", UV_plane_16x16[0])
+
+        logging.debug("Reconstructed 8x8 V plane coefficients:")
+        logging.debug("\n%s", UV_plane_16x16[1])
 
     def __get_nC(self, row, col):
         """
