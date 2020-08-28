@@ -243,8 +243,8 @@ class NalParser():
                 self.bottom_field_flag = self.stream.read(1).uint
                 logging.info("  bottom_field_flag: %d", self.bottom_field_flag)
 
-        nal_unit_type = 5   #TODO: nal_unit_type should passed in by outside or parse by self??
-        if nal_unit_type == 5:
+        nal_unit_type = self.slice_type
+        if nal_unit_type == H264Types.slice_type.I7.value:
             self.idr_pic_id = self.stream.read('ue') #ue(v)
             logging.info("  idr_pic_id: %d", self.idr_pic_id)
 
@@ -252,7 +252,7 @@ class NalParser():
 
         nal_ref_idc = 0   #TODO: nal_ref_idc should passed in by outside or parse by self??
         if not nal_ref_idc:
-            if nal_unit_type == 5:
+            if nal_unit_type == H264Types.slice_type.I7.value:
                 self.no_output_of_prior_pics_flag = self.stream.read(1).uint
                 self.long_term_reference_flag = self.stream.read(1).uint
                 logging.info("  no_output_of_prior_pics_flag: %s", "true" if self.no_output_of_prior_pics_flag else "false")
@@ -284,8 +284,6 @@ class NalParser():
         
         logging.info("}")
 
-        #slice data
-        logging.debug("slice data: %s", self.stream.peek(32))   # check the start data of slice_data
         self.__slice_data()
 
         return self.residual, self.modemap
@@ -342,6 +340,9 @@ class NalParser():
                 self.blk16x16Idx_x = 0
                 self.blk16x16Idx_y = self.blk16x16Idx_y + 1
 
+            # if self.blk16x16Idx_x == 0 and self.blk16x16Idx_y == 45:
+            #     moreDataFlag = False
+
     def __macroblock_layer(self):
         """
         do macroblock_layer() part of H.264 standard
@@ -349,26 +350,60 @@ class NalParser():
         startPos = self.stream.pos
         self.mb_type = self.stream.read('ue') #ue(v)
 
-        self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
-        self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
+        if self.slice_type == H264Types.slice_type.I7.value:
+            self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
+            self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
 
-        logging.info("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
-        logging.info("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0])
-        logging.info("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[1])
-        logging.info("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
-        logging.info("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
+            logging.debug("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type][0])
+            logging.debug("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0])
+            logging.debug("  Intra16x16PredMode: %s", H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[1])
 
-        # mb_pred()
-        self.intra_chroma_pred_mode = self.stream.read('ue')
-        logging.info("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+            # mb_pred()
+            self.intra_chroma_pred_mode = self.stream.read('ue')
+            logging.debug("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+        else:
+            # P slice
+            if self.mb_type<=4:
+                logging.debug("  mb_type: %s", H264Types.P_slice_Macroblock_types[self.mb_type][0])
+            else:
+                logging.debug("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type-5][0])
+
+            # mb_pred(), hard code for P slice
+            # on page 42 of [H.264 standard Book]
+            ref_idx_l0 = []
+            if self.pps.entropy_coding_mode_flag == 0:
+                ref_idx_l0.append(self.__read_te())
+            else:
+                ref_idx_l0.append(self.stream.read('ae'))
+
+            mvd_l0 = []
+            for compIdx in range(0, 2):
+                if self.pps.entropy_coding_mode_flag == 0:
+                    #mvd_l0[0][0][compIdx] = self.stream.read('se')
+                    mvd_l0.append(self.stream.read('se'))
+                else:
+                    #mvd_l0[0][0][compIdx] = self.stream.read('ae')
+                    mvd_l0.append(self.stream.read('ae'))
+                
+            if self.pps.entropy_coding_mode_flag == 0:
+                coded_block_pattern = self.__read_me()
+            else:
+                coded_block_pattern = self.stream.read('ae')
+            self.CodedBlockPatternLuma = coded_block_pattern % 16
+            self.CodedBlockPatternChroma = coded_block_pattern / 16
+
+        logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
+        logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
+
+
 
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
             (self.mb_type!=0 and self.mb_type!=25)):
             self.mb_qp_delta = self.stream.read('se')
-            logging.info("  mb_qp_delta: %d", self.mb_qp_delta)
+            logging.debug("  mb_qp_delta: %d", self.mb_qp_delta)
             #TODO: seems has some bug in below QP calculating
             self.mb_current_qp = (self.SliceQPy + self.mb_qp_delta + 52) % 52 # the QP of current macroblock
-            logging.info("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
+            logging.debug("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
 
 
         #residual
@@ -380,7 +415,7 @@ class NalParser():
         #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
 
         nC = self.__get_nC(self.blk16x16Idx_y*4, self.blk16x16Idx_x*4)
-        logging.info("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
+        logging.debug("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
         
         blocks = self.stream[self.stream.pos: self.stream.len]
         Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
@@ -512,6 +547,46 @@ class NalParser():
 
         logging.debug("Reconstructed 8x8 V plane coefficients:")
         logging.debug("\n%s", UV_plane_16x16[1])
+
+    def __read_te(self):
+        """
+        read te data from stream
+        """
+        logging.info("before read te(v) data: %s", self.stream.peek(16).bin)
+        
+        value = self.stream.read('uint:1')
+        result = 0
+        if value > 1:
+            temp = self.stream.read('ue')
+            result = temp
+        elif value==1:
+            result = 0
+        else: # value==0
+            result = 1   # temp code, should fix
+
+        logging.info("after read te(v) data: %s", self.stream.peek(16).bin)
+        return result
+
+    def __read_me(self):
+        """
+        read me data from stream
+        """
+        logging.info("before read me(v) data: %s", self.stream.peek(16).bin)
+        
+        leadingZeroBits = -1
+        b = 0
+        while not b:
+            leadingZeroBits = leadingZeroBits + 1
+            b = self.stream.read('uint:1')
+
+        temp = '0b1' + self.stream.read('bits:'+leadingZeroBits)
+
+        codeNum = pow(2, leadingZeroBits) - 1 + temp
+
+        logging.info("after read me(v) data: %s", self.stream.peek(16).bin)
+
+        # get coded_block_pattern by codeNum
+        return codeNum
 
     def __get_nC(self, row, col):
         """
