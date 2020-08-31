@@ -579,9 +579,9 @@ class NalParser():
             leadingZeroBits = leadingZeroBits + 1
             b = self.stream.read('uint:1')
 
-        temp = '0b1' + self.stream.read('bits:'+leadingZeroBits)
+        temp = self.stream.read('bits:'+str(leadingZeroBits))
 
-        codeNum = pow(2, leadingZeroBits) - 1 + temp
+        codeNum = pow(2, leadingZeroBits) - 1 + temp.int
 
         logging.info("after read me(v) data: %s", self.stream.peek(16).bin)
 
