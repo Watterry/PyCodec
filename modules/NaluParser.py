@@ -390,7 +390,7 @@ class NalParser():
             else:
                 coded_block_pattern = self.stream.read('ae')
             self.CodedBlockPatternLuma = coded_block_pattern % 16
-            self.CodedBlockPatternChroma = coded_block_pattern / 16
+            self.CodedBlockPatternChroma = coded_block_pattern // 16
 
         logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
@@ -552,7 +552,7 @@ class NalParser():
         """
         read te data from stream
         """
-        logging.info("before read te(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("before read te(v) data: %s", self.stream.peek(16).bin)
         
         value = self.stream.read('uint:1')
         result = 0
@@ -564,14 +564,14 @@ class NalParser():
         else: # value==0
             result = 1   # temp code, should fix
 
-        logging.info("after read te(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("after read te(v) data: %s", self.stream.peek(16).bin)
         return result
 
     def __read_me(self):
         """
         read me data from stream
         """
-        logging.info("before read me(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("before read me(v) data: %s", self.stream.peek(16).bin)
         
         leadingZeroBits = -1
         b = 0
@@ -583,7 +583,7 @@ class NalParser():
 
         codeNum = pow(2, leadingZeroBits) - 1 + temp.int
 
-        logging.info("after read me(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("after read me(v) data: %s", self.stream.peek(16).bin)
 
         # get coded_block_pattern by codeNum
         return codeNum
