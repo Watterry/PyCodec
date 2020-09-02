@@ -243,23 +243,47 @@ class NalParser():
                 self.bottom_field_flag = self.stream.read(1).uint
                 logging.info("  bottom_field_flag: %d", self.bottom_field_flag)
 
-        nal_unit_type = self.slice_type
-        if nal_unit_type == H264Types.slice_type.I7.value:
+        #hard code for nal_unit_type, temp code
+        #nal_unit_type should be passed by outside in NAL parser
+        if self.slice_type == H264Types.slice_type.I7.value:
+            nal_unit_type = 5
+        else:
+            nal_unit_type = 1
+
+        if nal_unit_type == 5:
             self.idr_pic_id = self.stream.read('ue') #ue(v)
             logging.info("  idr_pic_id: %d", self.idr_pic_id)
 
-        #TODO: add a lot of parse process here
+        if self.slice_type == H264Types.slice_type.p5.value:
+            self.num_ref_idx_active_override_flag = self.stream.read('uint:1')
+            logging.info("  num_ref_idx_active_override_flag: %d", self.num_ref_idx_active_override_flag)
+            if self.num_ref_idx_active_override_flag:
+                self.num_ref_idx_l0_active_minus1 = self.stream.read('ue')
+                logging.info("  num_ref_idx_l0_active_minus1: %d", self.num_ref_idx_l0_active_minus1)
 
-        nal_ref_idc = 0   #TODO: nal_ref_idc should passed in by outside or parse by self??
-        if not nal_ref_idc:
-            if nal_unit_type == H264Types.slice_type.I7.value:
+        # ref_pic_list_reordering( )
+        if self.slice_type != H264Types.slice_type.I7.value and self.slice_type != H264Types.slice_type.SI.value:
+            self.ref_pic_list_reordering_flag_l0 = self.stream.read('uint:1')
+            logging.info("  ref_pic_list_reordering_flag_l0: %d", self.ref_pic_list_reordering_flag_l0)
+            if self.ref_pic_list_reordering_flag_l0:
+                logging.error("  This part is not supported yet!")
+
+        #TODO: nal_ref_idc should passed in by outside
+        # below is just temp code
+        if self.slice_type == H264Types.slice_type.I7.value:
+            nal_ref_idc = 3
+        else:
+            nal_ref_idc = 0
+        if nal_ref_idc!=0:
+            if nal_unit_type == 5:
                 self.no_output_of_prior_pics_flag = self.stream.read(1).uint
                 self.long_term_reference_flag = self.stream.read(1).uint
                 logging.info("  no_output_of_prior_pics_flag: %s", "true" if self.no_output_of_prior_pics_flag else "false")
                 logging.info("  long_term_reference_flag: %s", "true" if self.long_term_reference_flag else "false")
             else:
                 self.adaptive_ref_pic_marking_mode_flag = self.stream.read(1).uint
-                #TODO add more process here
+                if self.adaptive_ref_pic_marking_mode_flag:
+                    logging.error("  adaptive_ref_pic_marking_mode_flag part is not support yet!")
 
         # if PPS.entropy_coding_mode_flag and (self.slice_type!=H264Types.slice_type('I') or self.slice_type!=H264Types.slice_type('I7'))
         #    and (self.slice_type!=H264Types.slice_type('SI') or self.slice_type!=H264Types.slice_type('SI9')):
@@ -319,9 +343,15 @@ class NalParser():
         while moreDataFlag:
 
             logging.debug("----------------------------------------")
+
+            if self.slice_type != H264Types.slice_type.I7.value and self.slice_type != H264Types.slice_type.I.value:
+                if not self.pps.entropy_coding_mode_flag:
+                    mb_skip_run = self.stream.read('ue')
+                    prevMbSkipped = (mb_skip_run>0)
+
             if moreDataFlag:
                 if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
-                    self.mb_field_decoding_flag = 0
+                    self.mb_field_decoding_flag = self.stream.read('uint:1')
                 
                 #parsing macroblock_layer()
                 self.__macroblock_layer()
@@ -395,8 +425,6 @@ class NalParser():
         logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
 
-
-
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
             (self.mb_type!=0 and self.mb_type!=25)):
             self.mb_qp_delta = self.stream.read('se')
@@ -405,69 +433,17 @@ class NalParser():
             self.mb_current_qp = (self.SliceQPy + self.mb_qp_delta + 52) % 52 # the QP of current macroblock
             logging.debug("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
 
-
         #residual
         temp = self.stream[startPos: self.stream.pos]
         logging.debug("residual header: %s", temp.bin) 
         logging.debug("residual body: %s", self.stream.peek(32).bin)   # check the start data of slice_data
 
-        #logging.debug("nAnB:")
-        #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+        # temp code, the same as MbPartPredMode( mb_type, 0 ) = = Intra_16x16
+        if self.slice_type == H264Types.slice_type.I7.value:
+            coeffBlock_16x16, residual_16x16 = self.__residual_block_Intra16x16()
+        else:
+            coeffBlock_16x16, residual_16x16 = self.__residual_block_LumaLevel()
 
-        nC = self.__get_nC(self.blk16x16Idx_y*4, self.blk16x16Idx_x*4)
-        logging.debug("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
-        
-        blocks = self.stream[self.stream.pos: self.stream.len]
-        Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
-        temp = self.stream.read(position)   # drop the decoded data
-        logging.debug("processed data: %s", temp.bin)
-        logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
-        
-        # do DC level transform
-        residual_lumDC = transform.inverseIntra16x16LumaDCScalingAndTransform(Intra16x16DCLevel, self.mb_current_qp)
-        logging.debug("residual_lumDC: %s", residual_lumDC)
-
-        coeffBlock_16x16 = np.zeros((16, 16), int)
-        residual_16x16 = np.zeros((16, 16), int)
-
-        if self.CodedBlockPatternLuma>0:
-            luma4x4BlkIdx = 0
-            for m in range(0, 2):
-                for n in range(0, 2):
-                    for i in range(0, 2):
-                        for j in range(0, 2):
-                            #different nC
-                            x = m*2+i
-                            y = n*2+j
-                            abs_row = self.blk16x16Idx_y*4 + x
-                            abs_col = self.blk16x16Idx_x*4 + y
-                            nC = self.__get_nC(abs_row, abs_col)
-                            logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
-                            logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
-                            
-                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
-                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
-                            blocks = self.stream[self.stream.pos: self.stream.len]
-                            Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, self.CodedBlockPatternLuma)
-
-                            temp = self.stream.read(position)   # drop the decoded data
-                            logging.debug("processed data: %s", temp.bin)
-                            logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                            logging.debug("\n%s" % (Intra4x4ACLevel))
-
-                            coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
-
-                            #do AC level transform
-                            temp4x4ACLevel = copy.deepcopy(Intra4x4ACLevel.astype(int))
-                            temp4x4ACLevel[0, 0] = residual_lumDC[x, y]
-                            residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
-                            residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
-
-                            luma4x4BlkIdx = luma4x4BlkIdx + 1
-
-        for i in range(0, 4):
-            for j in range(0, 4):
-                coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
         logging.debug("Reconstructed 16x16 coefficients:")
         logging.debug("\n%s", coeffBlock_16x16)
 
@@ -548,6 +524,122 @@ class NalParser():
         logging.debug("Reconstructed 8x8 V plane coefficients:")
         logging.debug("\n%s", UV_plane_16x16[1])
 
+    def __residual_block_Intra16x16(self):
+        """
+        residual_block( Intra16x16DCLevel, 16 )
+        residual_block( Intra16x16ACLevel[ i8x8 * 4 + i4x4 ], 15 )
+        on page 44 of H.264 standard
+        """
+        #logging.debug("nAnB:")
+        #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+
+        nC = self.__get_nC(self.blk16x16Idx_y*4, self.blk16x16Idx_x*4)
+        logging.debug("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
+        
+        blocks = self.stream[self.stream.pos: self.stream.len]
+        Intra16x16DCLevel, position, temp = cavlc.decode(blocks, nC, 16)
+        temp = self.stream.read(position)   # drop the decoded data
+        logging.debug("processed data: %s", temp.bin)
+        logging.debug("Intra16x16DCLevel: %s", Intra16x16DCLevel)
+        
+        # do DC level transform
+        residual_lumDC = transform.inverseIntra16x16LumaDCScalingAndTransform(Intra16x16DCLevel, self.mb_current_qp)
+        logging.debug("residual_lumDC: %s", residual_lumDC)
+
+        coeffBlock_16x16 = np.zeros((16, 16), int)
+        residual_16x16 = np.zeros((16, 16), int)
+
+        if self.CodedBlockPatternLuma>0:
+            luma4x4BlkIdx = 0
+            for m in range(0, 2):
+                for n in range(0, 2):
+                    for i in range(0, 2):
+                        for j in range(0, 2):
+                            #different nC
+                            x = m*2+i
+                            y = n*2+j
+                            abs_row = self.blk16x16Idx_y*4 + x
+                            abs_col = self.blk16x16Idx_x*4 + y
+                            nC = self.__get_nC(abs_row, abs_col)
+                            logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
+                            logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
+                            
+                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
+                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                            blocks = self.stream[self.stream.pos: self.stream.len]
+                            Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, 15)
+
+                            temp = self.stream.read(position)   # drop the decoded data
+                            logging.debug("processed data: %s", temp.bin)
+                            logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
+                            logging.debug("\n%s" % (Intra4x4ACLevel))
+
+                            coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+
+                            #do AC level transform
+                            temp4x4ACLevel = copy.deepcopy(Intra4x4ACLevel.astype(int))
+                            temp4x4ACLevel[0, 0] = residual_lumDC[x, y]
+                            residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
+                            residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+
+                            luma4x4BlkIdx = luma4x4BlkIdx + 1
+
+        for i in range(0, 4):
+            for j in range(0, 4):
+                coeffBlock_16x16[i*4, j*4] = Intra16x16DCLevel[i, j]
+
+        return coeffBlock_16x16, residual_16x16
+
+    def __residual_block_LumaLevel(self):
+        """
+        residual_block( LumaLevel[ i8x8 * 4 + i4x4 ], 16 )
+        on page 44 of H.264 standard
+        """
+        #logging.debug("nAnB:")
+        #logging.debug("\n%s" % (self.nAnB[0:4, 0:4]))
+
+        nC = self.__get_nC(self.blk16x16Idx_y*4, self.blk16x16Idx_x*4)
+        logging.debug("  blk16x16Idx_x: %d, blk16x16Idx_y: %d, nC: %d", self.blk16x16Idx_x, self.blk16x16Idx_y, nC)
+        
+        coeffBlock_16x16 = np.zeros((16, 16), int)
+        residual_16x16 = np.zeros((16, 16), int)
+
+        if self.CodedBlockPatternLuma>0:
+            luma4x4BlkIdx = 0
+            for m in range(0, 2):
+                for n in range(0, 2):
+                    for i in range(0, 2):
+                        for j in range(0, 2):
+                            #different nC
+                            x = m*2+i
+                            y = n*2+j
+                            abs_row = self.blk16x16Idx_y*4 + x
+                            abs_col = self.blk16x16Idx_x*4 + y
+                            nC = self.__get_nC(abs_row, abs_col)
+                            logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
+                            logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
+                            
+                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
+                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                            blocks = self.stream[self.stream.pos: self.stream.len]
+                            Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, 16)
+
+                            temp = self.stream.read(position)   # drop the decoded data
+                            logging.debug("processed data: %s", temp.bin)
+                            logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
+                            logging.debug("\n%s" % (Intra4x4ACLevel))
+
+                            coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
+
+                            #do AC level transform
+                            temp4x4ACLevel = copy.deepcopy(Intra4x4ACLevel.astype(int))
+                            residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
+                            residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+
+                            luma4x4BlkIdx = luma4x4BlkIdx + 1
+
+        return coeffBlock_16x16, residual_16x16
+
     def __read_te(self):
         """
         read te data from stream
@@ -579,9 +671,12 @@ class NalParser():
             leadingZeroBits = leadingZeroBits + 1
             b = self.stream.read('uint:1')
 
-        temp = self.stream.read('bits:'+str(leadingZeroBits))
+        follow = 0
+        if leadingZeroBits>0:
+            temp = self.stream.read('bits:'+str(leadingZeroBits))
+            follow = temp.int
 
-        codeNum = pow(2, leadingZeroBits) - 1 + temp.int
+        codeNum = pow(2, leadingZeroBits) - 1 + follow
 
         logging.debug("after read me(v) data: %s", self.stream.peek(16).bin)
 
