@@ -340,9 +340,13 @@ class NalParser():
         row_block_num = int(width / 16)   # the total num of 16x16 blocks in row
         col_block_num = int(height / 16)  # the total num of 16x16 blocks in column
 
+
+        macroblockIdx = 0
+
         while moreDataFlag:
 
             logging.debug("----------------------------------------")
+            logging.debug("macroblockIdx: %d", macroblockIdx)
 
             if self.slice_type != H264Types.slice_type.I7.value and self.slice_type != H264Types.slice_type.I.value:
                 if not self.pps.entropy_coding_mode_flag:
@@ -352,9 +356,13 @@ class NalParser():
             if moreDataFlag:
                 if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
                     self.mb_field_decoding_flag = self.stream.read('uint:1')
+                else:
+                    self.mb_field_decoding_flag = 0   # more complex situation
                 
                 #parsing macroblock_layer()
                 self.__macroblock_layer()
+
+                macroblockIdx = macroblockIdx + 1
 
             # do next process
             if not self.pps.entropy_coding_mode_flag:
@@ -378,6 +386,7 @@ class NalParser():
         do macroblock_layer() part of H.264 standard
         """
         startPos = self.stream.pos
+        logging.debug("flowing data: %s", self.stream.peek(64).bin)
         self.mb_type = self.stream.read('ue') #ue(v)
 
         if self.slice_type == H264Types.slice_type.I7.value:
@@ -398,13 +407,34 @@ class NalParser():
             else:
                 logging.debug("  mb_type: %s", H264Types.I_slice_Macroblock_types[self.mb_type-5][0])
 
-            # mb_pred(), hard code for P slice
-            # on page 42 of [H.264 standard Book]
+
             ref_idx_l0 = []
-            if self.pps.entropy_coding_mode_flag == 0:
-                ref_idx_l0.append(self.__read_te())
+            NumMbPart = int(H264Types.P_slice_Macroblock_types[self.mb_type][1])   # NumMbPart( mb_type )
+            
+            if NumMbPart == 4:
+                # sub_mb_pred(), temp code
+                sub_mb_type = []
+                for mbPartIdx in range(0, 4):
+                    temp = self.stream.read('ue') #ue(v)
+                    sub_mb_type.append(temp)
+
+                # TODO: ref_idx_l0 parse part 
             else:
-                ref_idx_l0.append(self.stream.read('ae'))
+                # mb_pred(), hard code for P slice
+                # on page 42 of [H.264 standard Book]
+                for mbPartIdx in range(0, NumMbPart):
+                    if ((self.num_ref_idx_l0_active_minus1>0 or self.mb_field_decoding_flag) and
+                        H264Types.P_slice_Macroblock_types[self.mb_type][2] != 'Pred_L1'):
+                        temp = self.__read_te()
+                        ref_idx_l0.append(temp)
+                        logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
+
+            if H264Types.P_slice_Macroblock_types[self.mb_type][0] == 'P_8x8ref0':
+                ref_idx_l0.append(0)
+                logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
+
+
+            logging.debug("flowing data: %s", self.stream.peek(64).bin)
 
             mvd_l0 = []
             for compIdx in range(0, 2):
@@ -413,8 +443,12 @@ class NalParser():
                     mvd_l0.append(self.stream.read('se'))
                 else:
                     #mvd_l0[0][0][compIdx] = self.stream.read('ae')
-                    mvd_l0.append(self.stream.read('ae'))
+                    mvd_l0.append(self.stream.peek(64))
+
                 
+            logging.debug("flowing data: %s", self.stream.peek(64).bin)
+            #self.stream.read('bits:26')
+            #logging.debug("temp4 body: %s", self.stream.peek(64).bin)
             if self.pps.entropy_coding_mode_flag == 0:
                 coded_block_pattern = self.__read_me()
             else:
@@ -426,7 +460,7 @@ class NalParser():
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
 
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
-            (self.mb_type!=0 and self.mb_type!=25)):
+            (self.mb_type!=0 and self.mb_type!=26)):
             self.mb_qp_delta = self.stream.read('se')
             logging.debug("  mb_qp_delta: %d", self.mb_qp_delta)
             #TODO: seems has some bug in below QP calculating
@@ -469,19 +503,19 @@ class NalParser():
         example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
         logging.debug("following data: %s", self.stream.peek(example_len).bin)
 
-        if self.CodedBlockPatternChroma>0:
-            for i in range(0, 2):
+        for i in range(0, 2):
+            if self.CodedBlockPatternChroma&3:
                 blocks = self.stream[self.stream.pos: self.stream.len]
                 ChromaDCLevel[i], position, temp = cavlc.decode(blocks, -1, 4)
                 temp = self.stream.read(position)   # drop the decoded data
                 logging.debug("processed data: %s", temp.bin)
                 logging.debug("ChromaDCLevel_%d:", i)
                 logging.debug("\n%s" % (ChromaDCLevel[i]))
-        else:
-            # two DC are zeros
-            logging.debug("Two Chroma DC are zeros")
+            else:
+                # two DC are zeros, already zeros, do nothing
+                logging.debug("Two Chroma DC are zeros")
 
-        if self.CodedBlockPatternChroma==2:
+        if self.CodedBlockPatternChroma&2:
             for m in range(0, 2):   # cb & cr
                 chroma4x4BlkIdx = 0
                 nC = 0
@@ -604,15 +638,18 @@ class NalParser():
         coeffBlock_16x16 = np.zeros((16, 16), int)
         residual_16x16 = np.zeros((16, 16), int)
 
-        if self.CodedBlockPatternLuma>0:
-            luma4x4BlkIdx = 0
-            for m in range(0, 2):
-                for n in range(0, 2):
-                    for i in range(0, 2):
-                        for j in range(0, 2):
-                            #different nC
-                            x = m*2+i
-                            y = n*2+j
+        luma4x4BlkIdx = 0
+        for m in range(0, 2):
+            for n in range(0, 2):
+                for i in range(0, 2):
+                    for j in range(0, 2):
+                        #different nC
+                        x = m*2+i
+                        y = n*2+j
+                        tempindex = m*2 + n
+                        if (self.CodedBlockPatternLuma & (1<<tempindex)):
+
+
                             abs_row = self.blk16x16Idx_y*4 + x
                             abs_col = self.blk16x16Idx_x*4 + y
                             nC = self.__get_nC(abs_row, abs_col)
@@ -631,12 +668,15 @@ class NalParser():
 
                             coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
-                            #do AC level transform
-                            temp4x4ACLevel = copy.deepcopy(Intra4x4ACLevel.astype(int))
-                            residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
-                            residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+                        else:
+                            coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = 0
 
-                            luma4x4BlkIdx = luma4x4BlkIdx + 1
+                        #do AC level transform
+                        temp4x4ACLevel = copy.deepcopy(coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)].astype(int))
+                        residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
+                        residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+
+                        luma4x4BlkIdx = luma4x4BlkIdx + 1
 
         return coeffBlock_16x16, residual_16x16
 
@@ -644,9 +684,9 @@ class NalParser():
         """
         read te data from stream
         """
-        logging.debug("before read te(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("before read te(v) data: %s", self.stream.peek(32).bin)
         
-        value = self.stream.read('uint:1')
+        value = self.__get_codeNum()
         result = 0
         if value > 1:
             temp = self.stream.read('ue')
@@ -656,14 +696,14 @@ class NalParser():
         else: # value==0
             result = 1   # temp code, should fix
 
-        logging.debug("after read te(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("after read te(v) data: %s", self.stream.peek(32).bin)
         return result
 
-    def __read_me(self):
+    def __get_codeNum(self):
         """
-        read me data from stream
+        get codeNum from stream
         """
-        logging.debug("before read me(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("before read codeNum data: %s", self.stream.peek(32).bin)
         
         leadingZeroBits = -1
         b = 0
@@ -674,11 +714,23 @@ class NalParser():
         follow = 0
         if leadingZeroBits>0:
             temp = self.stream.read('bits:'+str(leadingZeroBits))
-            follow = temp.int
+            follow = temp.uint
 
         codeNum = pow(2, leadingZeroBits) - 1 + follow
 
-        logging.debug("after read me(v) data: %s", self.stream.peek(16).bin)
+        logging.debug("after read codeNum data: %s", self.stream.peek(32).bin)
+        logging.debug("codeNum: %d", codeNum)
+
+        # get coded_block_pattern by codeNum
+        return codeNum
+
+    def __read_me(self):
+        """
+        read me data from stream
+        """
+        codeNum = self.__get_codeNum()
+
+        #get from table 9-4
 
         # get coded_block_pattern by codeNum
         return codeNum
