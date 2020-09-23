@@ -219,7 +219,7 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
 
 
     vi4 = getVi4ByQP(20)
-    logging.debug(vi4)
+    #logging.debug(vi4)
 
     d = C * vi4 * pow(2, int(20/6))
     d[0, 0] = C[0, 0]

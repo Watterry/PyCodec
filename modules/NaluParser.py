@@ -409,7 +409,9 @@ class NalParser():
 
 
             ref_idx_l0 = []
-            NumMbPart = int(H264Types.P_slice_Macroblock_types[self.mb_type][1])   # NumMbPart( mb_type )
+            NumMbPart = 1
+            if self.mb_type <=4:
+                NumMbPart = int(H264Types.P_slice_Macroblock_types[self.mb_type][1])   # NumMbPart( mb_type )
             
             if NumMbPart == 4:
                 # sub_mb_pred(), temp code
@@ -419,31 +421,41 @@ class NalParser():
                     sub_mb_type.append(temp)
 
                 # TODO: ref_idx_l0 parse part 
+                if H264Types.P_slice_Macroblock_types[self.mb_type][0] == 'P_8x8ref0':
+                    for mbPartIdx in range(0, NumMbPart):
+                        ref_idx_l0.append(0)
+                        logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
             else:
                 # mb_pred(), hard code for P slice
                 # on page 42 of [H.264 standard Book]
-                for mbPartIdx in range(0, NumMbPart):
-                    if ((self.num_ref_idx_l0_active_minus1>0 or self.mb_field_decoding_flag) and
-                        H264Types.P_slice_Macroblock_types[self.mb_type][2] != 'Pred_L1'):
-                        temp = self.__read_te()
-                        ref_idx_l0.append(temp)
-                        logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
-
-            if H264Types.P_slice_Macroblock_types[self.mb_type][0] == 'P_8x8ref0':
-                ref_idx_l0.append(0)
-                logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
-
-
-            logging.debug("flowing data: %s", self.stream.peek(64).bin)
-
-            mvd_l0 = []
-            for compIdx in range(0, 2):
-                if self.pps.entropy_coding_mode_flag == 0:
-                    #mvd_l0[0][0][compIdx] = self.stream.read('se')
-                    mvd_l0.append(self.stream.read('se'))
+                if self.mb_type >4: # Intra_4x4 or Intra_16x16
+                    #TODO: support Intra_4x4 mode
+                    self.intra_chroma_pred_mode = self.stream.read('ue')
+                    logging.debug("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
                 else:
-                    #mvd_l0[0][0][compIdx] = self.stream.read('ae')
-                    mvd_l0.append(self.stream.peek(64))
+                    for mbPartIdx in range(0, NumMbPart):
+                        if ((self.num_ref_idx_l0_active_minus1>0 or self.mb_field_decoding_flag) and
+                            H264Types.P_slice_Macroblock_types[self.mb_type][2] != 'Pred_L1'):
+                            temp = self.__read_te()
+                            ref_idx_l0.append(temp)
+                            logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
+
+                    if H264Types.P_slice_Macroblock_types[self.mb_type][0] == 'P_8x8ref0':
+                        for mbPartIdx in range(0, NumMbPart):
+                            ref_idx_l0.append(0)
+                            logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
+
+
+                logging.debug("flowing data: %s", self.stream.peek(64).bin)
+
+                mvd_l0 = []
+                for compIdx in range(0, 2):
+                    if self.pps.entropy_coding_mode_flag == 0:
+                        #mvd_l0[0][0][compIdx] = self.stream.read('se')
+                        mvd_l0.append(self.stream.read('se'))
+                    else:
+                        #mvd_l0[0][0][compIdx] = self.stream.read('ae')
+                        mvd_l0.append(self.stream.peek(64))
 
                 
             logging.debug("flowing data: %s", self.stream.peek(64).bin)
@@ -468,9 +480,8 @@ class NalParser():
             logging.debug("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
 
         #residual
-        temp = self.stream[startPos: self.stream.pos]
-        logging.debug("residual header: %s", temp.bin) 
-        logging.debug("residual body: %s", self.stream.peek(32).bin)   # check the start data of slice_data
+        residual_header = self.stream[startPos: self.stream.pos]
+        startPos = self.stream.pos
 
         # temp code, the same as MbPartPredMode( mb_type, 0 ) = = Intra_16x16
         if self.slice_type == H264Types.slice_type.I7.value:
@@ -558,6 +569,10 @@ class NalParser():
         logging.debug("Reconstructed 8x8 V plane coefficients:")
         logging.debug("\n%s", UV_plane_16x16[1])
 
+        logging.debug("residual header: %s", residual_header.bin) 
+        residual_body = self.stream[startPos: self.stream.pos]
+        logging.debug("residual body: %s", residual_body.bin)
+
     def __residual_block_Intra16x16(self):
         """
         residual_block( Intra16x16DCLevel, 16 )
@@ -606,7 +621,7 @@ class NalParser():
                             temp = self.stream.read(position)   # drop the decoded data
                             logging.debug("processed data: %s", temp.bin)
                             logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                            logging.debug("\n%s" % (Intra4x4ACLevel))
+                            #logging.debug("\n%s" % (Intra4x4ACLevel))
 
                             coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
@@ -663,8 +678,8 @@ class NalParser():
 
                             temp = self.stream.read(position)   # drop the decoded data
                             logging.debug("processed data: %s", temp.bin)
-                            logging.debug("Intra16x16ACLevel_%d:", luma4x4BlkIdx)
-                            logging.debug("\n%s" % (Intra4x4ACLevel))
+                            logging.debug("Inter16x16ACLevel_%d:", luma4x4BlkIdx)
+                            #logging.debug("\n%s" % (Intra4x4ACLevel))
 
                             coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(Intra4x4ACLevel)
 
