@@ -397,7 +397,7 @@ class NalParser():
         do macroblock_layer() part of H.264 standard
         """
         startPos = self.stream.pos
-        logging.debug("flowing data: %s", self.stream.peek(64).bin)
+        self.__show_binary_fragment()
         self.mb_type = self.stream.read('ue') #ue(v)
 
         self.MbPartPredMode = 'na'
@@ -433,7 +433,7 @@ class NalParser():
             else:
                 self.__mb_pred()
 
-            logging.debug("flowing data: %s", self.stream.peek(64).bin)
+            self.__show_binary_fragment()
             #self.stream.read('bits:26')
             #logging.debug("temp4 body: %s", self.stream.peek(64).bin)
             if self.MbPartPredMode != 'Intra_16x16' :
@@ -493,7 +493,7 @@ class NalParser():
                     ref_idx_l0.append(temp)
                     logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
 
-            logging.debug("flowing data: %s", self.stream.peek(64).bin)
+            self.__show_binary_fragment()
 
             mvd_l0 = []
             for compIdx in range(0, 2):
@@ -551,8 +551,7 @@ class NalParser():
 
         # chroma DC level, accroding to page 75 on [H.264 standard Book]
         logging.debug("Decoding Chroma DC level")
-        example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
-        logging.debug("following data: %s", self.stream.peek(example_len).bin)
+        self.__show_binary_fragment()
 
         for i in range(0, 2):
             if self.CodedBlockPatternChroma&3:
@@ -580,8 +579,7 @@ class NalParser():
                         logging.debug("row, col in nAnB_UV matrix: %d, %d", abs_row, abs_col)
                         nC = self.__get_nC_UV(m, abs_row, abs_col)
                         
-                        example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
-                        logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                        self.__show_binary_fragment()
                         blocks = self.stream[self.stream.pos: self.stream.len]
                         Chroma4x4ACLevel, position, self.nAnB_UV[m][abs_row,abs_col] = cavlc.decode(blocks, nC, 15)
 
@@ -649,8 +647,7 @@ class NalParser():
                             logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
                             logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
                             
-                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
-                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                            self.__show_binary_fragment()
                             blocks = self.stream[self.stream.pos: self.stream.len]
                             Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, 15)
 
@@ -707,8 +704,7 @@ class NalParser():
                             logging.debug("decoding blockInx: %d, nC: %d", luma4x4BlkIdx, nC)
                             logging.debug("row, col in nAnB matrix: %d, %d", abs_row, abs_col)
                             
-                            example_len = 80 if (self.stream.len-self.stream.pos)>80 else (self.stream.len-self.stream.pos)
-                            logging.debug("following data: %s", self.stream.peek(example_len).bin)
+                            self.__show_binary_fragment()
                             blocks = self.stream[self.stream.pos: self.stream.len]
                             Intra4x4ACLevel, position, self.nAnB[abs_row,abs_col] = cavlc.decode(blocks, nC, 16)
 
@@ -754,7 +750,8 @@ class NalParser():
         """
         get codeNum from stream
         """
-        logging.debug("before read codeNum data: %s", self.stream.peek(32).bin)
+        logging.debug("before read codeNum data:")
+        self.__show_binary_fragment()
         
         leadingZeroBits = -1
         b = 0
@@ -769,7 +766,8 @@ class NalParser():
 
         codeNum = pow(2, leadingZeroBits) - 1 + follow
 
-        logging.debug("after read codeNum data: %s", self.stream.peek(32).bin)
+        logging.debug("after read codeNum data:")
+        self.__show_binary_fragment()
         logging.debug("codeNum: %d", codeNum)
 
         # get coded_block_pattern by codeNum
@@ -873,6 +871,13 @@ class NalParser():
             return True
         else:
             return False
+
+    def __show_binary_fragment(self, length=64):
+        """
+        show folloing binary code of decoding stream
+        """
+        example_len = length if (self.stream.len-self.stream.pos)>length else (self.stream.len-self.stream.pos)
+        logging.debug("following data: %s", self.stream.peek(example_len).bin)
 
 def main(h264file):
     """
