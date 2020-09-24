@@ -43,9 +43,33 @@ python3 prediction.py
 python3 H264Decoder.py
 ```
 
+# Test data info
+
+Please use H.264 file under /*test*/ folder to test the PyCoder, for the decoding process is not totally supported yet.
+
+Here is some info about test files:
+
+1. lena_x264_baseline_I_16x16.264
+
+One keyframe of H.264 encoding file.
+
+2. BasketballPass_720p.264
+
+The H.264 encoding file without B frame.
+
+3. BasketballPass_720p_P_16x16.264
+
+The H.264 encoding file without B frame, and all P frames are encoding with only P_L0_16x16 mb_type, but may with Intra_4x4 mb_type.
+
+4. BasketballPass_720p_P_16x16_without_Intra_4x4.264
+
+The H.264 encoding file without B frame, and all P frames are encoding with only P_L0_16x16 mb_type, and without Intra_4x4 mb_type.
+
 # TODO
 
 1. H.264 CABAC decoding process
+2. Intra_4x4 decoding process
+3. sub_mb_pred decoding process
 
 # Reference
 1. The whole code is based on the document of ITU-T Recommendation H.264 05/2003 edition, which I will call *[H.264 standard Book]* in my comment.
