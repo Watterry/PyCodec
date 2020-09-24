@@ -455,8 +455,7 @@ class NalParser():
         residual_header = self.stream[startPos: self.stream.pos]
         startPos = self.stream.pos
 
-        # temp code, the same as MbPartPredMode( mb_type, 0 ) = = Intra_16x16
-        if self.slice_type == H264Types.slice_type.I7.value:
+        if self.MbPartPredMode == 'Intra_16x16':
             coeffBlock_16x16, residual_16x16 = self.__residual_block_Intra16x16()
         else:
             coeffBlock_16x16, residual_16x16 = self.__residual_block_LumaLevel()
