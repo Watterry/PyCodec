@@ -455,10 +455,64 @@ class NalParser():
             self.mb_current_qp = (self.SliceQPy + self.mb_qp_delta + 52) % 52 # the QP of current macroblock
             logging.debug("  the value of QPY in the macroblock layer: %d", self.mb_current_qp)
 
-        #residual
-        residual_header = self.stream[startPos: self.stream.pos]
-        startPos = self.stream.pos
+            residual_header = self.stream[startPos: self.stream.pos]
+            startPos = self.stream.pos
+            self.__residual()
+            logging.debug("residual header: %s", residual_header.bin) 
+            residual_body = self.stream[startPos: self.stream.pos]
+            logging.debug("residual body: %s", residual_body.bin)
 
+    def __mb_pred(self):
+        """
+        mb_pred(), on page 42 of [H.264 standard Book]
+        """
+        if self.MbPartPredMode == 'Intra_4x4' or self.MbPartPredMode == 'Intra_16x16':
+            #TODO: add Intra_4x4 part
+            if self.MbPartPredMode == 'Intra_4x4':
+                logging.error("Not support Intra_4x4 mb_pred subroutine yet!")
+            self.intra_chroma_pred_mode = self.stream.read('ue')
+            logging.debug("intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+        elif self.MbPartPredMode != 'Direct':
+            ref_idx_l0 = []
+
+            for mbPartIdx in range(0, self.NumMbPart):
+                if ((self.num_ref_idx_l0_active_minus1>0 or self.mb_field_decoding_flag) and
+                    self.MbPartPredMode != 'Pred_L1'):
+                    temp = self.__read_te()
+                    ref_idx_l0.append(temp)
+                    logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
+
+            logging.debug("flowing data: %s", self.stream.peek(64).bin)
+
+            mvd_l0 = []
+            for compIdx in range(0, 2):
+                if self.pps.entropy_coding_mode_flag == 0:
+                    #mvd_l0[0][0][compIdx] = self.stream.read('se')
+                    mvd_l0.append(self.stream.read('se'))
+                else:
+                    #mvd_l0[0][0][compIdx] = self.stream.read('ae')
+                    mvd_l0.append(self.stream.peek(64))
+
+    def __sub_mb_pred(self):
+        """
+        sub_mb_pred
+        TODO: not finish yet
+        """
+        sub_mb_type = []
+        for mbPartIdx in range(0, 4):
+            temp = self.stream.read('ue') #ue(v)
+            sub_mb_type.append(temp)
+
+        ref_idx_l0 = []
+        if self.MbPartPredMode == 'P_8x8ref0':
+            for mbPartIdx in range(0, self.NumMbPart):
+                ref_idx_l0.append(0)
+                logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
+
+    def __residual(self):
+        """
+        residual
+        """
         if self.MbPartPredMode == 'Intra_16x16':
             coeffBlock_16x16, residual_16x16 = self.__residual_block_Intra16x16()
         else:
@@ -543,57 +597,6 @@ class NalParser():
 
         logging.debug("Reconstructed 8x8 V plane coefficients:")
         logging.debug("\n%s", UV_plane_16x16[1])
-
-        logging.debug("residual header: %s", residual_header.bin) 
-        residual_body = self.stream[startPos: self.stream.pos]
-        logging.debug("residual body: %s", residual_body.bin)
-
-    def __mb_pred(self):
-        """
-        mb_pred(), on page 42 of [H.264 standard Book]
-        """
-        if self.MbPartPredMode == 'Intra_4x4' or self.MbPartPredMode == 'Intra_16x16':
-            #TODO: add Intra_4x4 part
-            if self.MbPartPredMode == 'Intra_4x4':
-                logging.error("Not support Intra_4x4 mb_pred subroutine yet!")
-            self.intra_chroma_pred_mode = self.stream.read('ue')
-            logging.debug("intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
-        elif self.MbPartPredMode != 'Direct':
-            ref_idx_l0 = []
-
-            for mbPartIdx in range(0, self.NumMbPart):
-                if ((self.num_ref_idx_l0_active_minus1>0 or self.mb_field_decoding_flag) and
-                    self.MbPartPredMode != 'Pred_L1'):
-                    temp = self.__read_te()
-                    ref_idx_l0.append(temp)
-                    logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
-
-            logging.debug("flowing data: %s", self.stream.peek(64).bin)
-
-            mvd_l0 = []
-            for compIdx in range(0, 2):
-                if self.pps.entropy_coding_mode_flag == 0:
-                    #mvd_l0[0][0][compIdx] = self.stream.read('se')
-                    mvd_l0.append(self.stream.read('se'))
-                else:
-                    #mvd_l0[0][0][compIdx] = self.stream.read('ae')
-                    mvd_l0.append(self.stream.peek(64))
-
-    def __sub_mb_pred(self):
-        """
-        sub_mb_pred
-        TODO: not finish yet
-        """
-        sub_mb_type = []
-        for mbPartIdx in range(0, 4):
-            temp = self.stream.read('ue') #ue(v)
-            sub_mb_type.append(temp)
-
-        ref_idx_l0 = []
-        if self.MbPartPredMode == 'P_8x8ref0':
-            for mbPartIdx in range(0, self.NumMbPart):
-                ref_idx_l0.append(0)
-                logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, 0)
 
     def __residual_block_Intra16x16(self):
         """
