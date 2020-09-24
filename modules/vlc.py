@@ -26,6 +26,59 @@ def get_nC_table_index(nC):
     return table
 
 #table 9-5
+# Assignment of codeNum to values of coded_block_pattern for macroblock prediction modes
+coded_block_pattern = np.array([
+[47, 0],   # codeNum = 0
+[31, 16],   # codeNum = 1
+[15, 1],
+[0, 2],
+[23, 4],
+[27, 8],     # codeNum = 5
+[29, 32],
+[30, 3],
+[7, 5],
+[11, 10],
+[13, 12], # codeNum = 10
+[14, 15],
+[39, 47],
+[43, 7],
+[45, 11],
+[46, 13], # codeNum = 15
+[16, 14],
+[3, 6],
+[5, 9],
+[10, 31],
+[12, 35], # codeNum = 20
+[19, 37],
+[21, 42],
+[26, 44],
+[28, 33],
+[35, 34], # codeNum = 25
+[37, 36],
+[42, 40],
+[44, 39],
+[1, 43],
+[2, 45], # codeNum = 30
+[4, 46],
+[8, 17],
+[17, 18],
+[18, 20],
+[20, 24], # codeNum = 35
+[24, 19],
+[6, 21],
+[9, 26],
+[22, 28],
+[25, 23], # codeNum = 40
+[32, 27],
+[33, 29],
+[34, 30],
+[36, 22],
+[40, 25], # codeNum = 45
+[38, 38],
+[41, 41]
+])
+
+#table 9-5
 # 4x16x4 matrix of table of coeff_taken
 # [nC][TotalCoeff][TrailingOnes]
 # nC varies from 0 ~ 3 according to Table 9-5 on page 159

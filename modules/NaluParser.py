@@ -770,10 +770,15 @@ class NalParser():
         """
         codeNum = self.__get_codeNum()
 
+        pattern = 0
         #get from table 9-4
+        if self.MbPartPredMode == 'Intra_4x4':
+            pattern = vlc.coded_block_pattern[codeNum][0]
+        else:
+            pattern = vlc.coded_block_pattern[codeNum][1]
 
         # get coded_block_pattern by codeNum
-        return codeNum
+        return pattern
 
     def __get_nC(self, row, col):
         """
