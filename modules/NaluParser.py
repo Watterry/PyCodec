@@ -351,7 +351,12 @@ class NalParser():
             if self.slice_type != H264Types.slice_type.I7.value and self.slice_type != H264Types.slice_type.I.value:
                 if not self.pps.entropy_coding_mode_flag:
                     mb_skip_run = self.stream.read('ue')
+                    logging.debug("mb_skip_run: %d", mb_skip_run)
                     prevMbSkipped = (mb_skip_run>0)
+
+                    if mb_skip_run>0:
+                        macroblockIdx = macroblockIdx + mb_skip_run
+                        logging.debug("macroblockIdx: %d", macroblockIdx)
 
             if moreDataFlag:
                 if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
