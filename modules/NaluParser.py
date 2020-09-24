@@ -408,9 +408,10 @@ class NalParser():
                 self.MbPartPredMode = H264Types.I_slice_Macroblock_types[self.mb_type-5][1]
                 self.NumMbPart = 1 #TODO: temp value
 
-        logging.debug("mb_type: %d", self.mb_type)
-        logging.debug("name of mb_type: %s", self.name_of_mb_type)
-        logging.debug("MbPartPredMode: %s", self.MbPartPredMode)
+        logging.debug("macroblock_layer(){")
+        logging.debug("  mb_type: %d", self.mb_type)
+        logging.debug("  name of mb_type: %s", self.name_of_mb_type)
+        logging.debug("  MbPartPredMode: %s", self.MbPartPredMode)
 
         if self.name_of_mb_type == 'I_PCM':
             logging.error("Not support I_PCM mb_type yet!")
@@ -429,6 +430,7 @@ class NalParser():
                     coded_block_pattern = self.__read_me()
                 else:
                     coded_block_pattern = self.stream.read('ae')
+                logging.debug("  coded_block_pattern: %d", coded_block_pattern)
                 self.CodedBlockPatternLuma = coded_block_pattern % 16
                 self.CodedBlockPatternChroma = coded_block_pattern // 16
             else:
@@ -442,6 +444,8 @@ class NalParser():
 
         logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
+
+        logging.debug("}")
 
         if (self.CodedBlockPatternLuma>0 or self.CodedBlockPatternChroma>0 or 
             self.MbPartPredMode == 'Intra_16x16'):
