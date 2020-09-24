@@ -424,7 +424,7 @@ class NalParser():
             logging.debug("flowing data: %s", self.stream.peek(64).bin)
             #self.stream.read('bits:26')
             #logging.debug("temp4 body: %s", self.stream.peek(64).bin)
-            if self.MbPartPredMode != 'Intra16x16' :
+            if self.MbPartPredMode != 'Intra_16x16' :
                 if self.pps.entropy_coding_mode_flag == 0:
                     coded_block_pattern = self.__read_me()
                 else:
@@ -433,8 +433,12 @@ class NalParser():
                 self.CodedBlockPatternChroma = coded_block_pattern // 16
             else:
                 # Intra_16x16
-                self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
-                self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
+                if self.mb_type<=4:
+                    self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
+                    self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
+                else:
+                    self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type-5)
+                    self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type-5)
 
         logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
@@ -547,10 +551,11 @@ class NalParser():
         """
         if self.MbPartPredMode == 'Intra_4x4' or self.MbPartPredMode == 'Intra_16x16':
             #TODO: add Intra_4x4 part
+            if self.MbPartPredMode == 'Intra_4x4':
+                logging.error("Not support Intra_4x4 mb_pred subroutine yet!")
             self.intra_chroma_pred_mode = self.stream.read('ue')
-            logging.debug("  intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
+            logging.debug("intra_chroma_pred_mode: %d", self.intra_chroma_pred_mode)
         elif self.MbPartPredMode != 'Direct':
-            # P slice
             ref_idx_l0 = []
 
             for mbPartIdx in range(0, self.NumMbPart):
