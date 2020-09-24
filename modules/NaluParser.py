@@ -358,6 +358,12 @@ class NalParser():
                         macroblockIdx = macroblockIdx + mb_skip_run
                         logging.debug("macroblockIdx: %d", macroblockIdx)
 
+                        for i in range(0, mb_skip_run):
+                            self.blk16x16Idx_x = self.blk16x16Idx_x + 1
+                            if self.blk16x16Idx_x >= row_block_num:
+                                self.blk16x16Idx_x = 0
+                                self.blk16x16Idx_y = self.blk16x16Idx_y + 1
+
             if moreDataFlag:
                 if( MbaffFrameFlag and ( CurrMbAddr%2==0 or (CurrMbAddr%2==1 and prevMbSkipped) ) ):
                     self.mb_field_decoding_flag = self.stream.read('uint:1')
