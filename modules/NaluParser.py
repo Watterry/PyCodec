@@ -720,7 +720,7 @@ class NalParser():
 
                         #do AC level transform
                         temp4x4ACLevel = copy.deepcopy(coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)].astype(int))
-                        residualAC = transform.inverseReidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
+                        residualAC = transform.inverse_P_Reidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
                         residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
 
                         luma4x4BlkIdx = luma4x4BlkIdx + 1

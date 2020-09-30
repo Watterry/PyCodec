@@ -94,16 +94,20 @@ def getVi4ByQP(qp):
 def getLevelScaleOfLumaDC(qp):
     '''
     get LevelScale matrix by QP value
-    accroding to 8-255 formula on page 136 of [H.264 standard Book]
+    accroding to 8-252 formula on page 136 of [H.264 standard Book]
     : param qp: the QP enum value in H.264
     '''
-    row = qp%6
+    row = qp
+    if (qp<=5):
+        row = qp
+    else:
+        row = qp%6
 
-    # according to formula 8-25 on page 136
-    ls4 = np.array([[Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
-                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
-                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]],
-                    [Vtb[row, 0], Vtb[row, 0], Vtb[row, 0], Vtb[row, 0]]])
+    # according to formula 8-252 on page 136
+    ls4 = np.array([[Vtb[row, 0], Vtb[row, 2], Vtb[row, 0], Vtb[row, 2]],
+                    [Vtb[row, 2], Vtb[row, 1], Vtb[row, 2], Vtb[row, 1]],
+                    [Vtb[row, 0], Vtb[row, 2], Vtb[row, 0], Vtb[row, 2]],
+                    [Vtb[row, 2], Vtb[row, 1], Vtb[row, 2], Vtb[row, 1]]])
 
     return ls4
 
@@ -281,6 +285,47 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     
     #logging.debug("r\n%s", r)
     return r
+
+def inverse_P_Reidual4x4ScalingAndTransform(C, QP):
+    """
+    Scaling and transformation process for residual 4x4 P macroblocks
+    According to 8.6.1.1 on page 140 of [H.264 standard Book]
+    Args:
+        C: input coefficients of residual 4x4 block, with C[0, 0] replaced by LumacDC[0, 0] in Intra16x16 mode
+        QP: the qp step
+    Return:
+        r: the reconstruction of residual 4x4 block
+    """
+    # step1: inverse transform coefficients
+    CL4 = np.array([[1, 1, 1, 1],
+                    [2, 1, -1, -2],
+                    [1, -1, -1, 1],
+                    [1, -2, 2, -1]])
+
+    CR4 = np.array([[1, 2, 1, 1],
+                    [1, 1, -1, -2],
+                    [1, -1, -1, 2],
+                    [1, -2, 1, -1]])
+
+    temp = np.dot(CL4, C)
+    f = np.dot(temp, CR4)
+
+    # step2: Scaling and quantization
+    ls4 = getLevelScaleOfLumaDC(QP)
+    #logging.debug("\n%s", ls4)
+
+    A = np.array([[16, 20, 16, 20],
+                  [20, 25, 20, 25],
+                  [16, 20, 16, 20],
+                  [20, 25, 20, 25]])
+
+    Cs = (((C * ls4 * A) << int(QP/6)) >> 6)
+
+    levelScale2 = getMf4ByQP(QP)
+
+    r = (np.sign(Cs) * (abs(Cs) * levelScale2 + (1<<(14+int(QP/6))))) >> (15+int(QP/6))
+
+    return inverseReidual4x4ScalingAndTransform(r, QP)
 
 def testCase1():
     test = np.array([[58, 64, 51, 58],
