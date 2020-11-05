@@ -446,12 +446,8 @@ class NalParser():
                 self.CodedBlockPatternChroma = coded_block_pattern // 16
             else:
                 # Intra_16x16
-                if self.mb_type<=4:
-                    self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
-                    self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
-                else:
-                    self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type-5)
-                    self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type-5)
+                self.CodedBlockPatternChroma = H264Types.get_I_slice_CodedBlockPatternChroma(self.mb_type)
+                self.CodedBlockPatternLuma = H264Types.get_I_slice_CodedBlockPatternLuma(self.mb_type)
 
         logging.debug("  CodedBlockPatternLuma: %d", self.CodedBlockPatternLuma)
         logging.debug("  CodedBlockPatternChroma: %d", self.CodedBlockPatternChroma)
@@ -720,6 +716,11 @@ class NalParser():
 
                         #do AC level transform
                         temp4x4ACLevel = copy.deepcopy(coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)].astype(int))
+
+                        # preSample = np.zeros(16, 16)
+                        # if self.blk16x16Idx_x==73 and self.blk16x16Idx_y==7:
+                        #     preSample = []
+
                         residualAC = transform.inverse_P_Reidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
                         residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
 
