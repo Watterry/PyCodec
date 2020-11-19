@@ -488,10 +488,13 @@ class NalParser():
                     temp = self.__read_te()
                     ref_idx_l0.append(temp)
                     logging.debug("ref_idx_l0[%d]: %d", mbPartIdx, temp)
+                else:
+                    ref_idx_l0.append(0)
+                    logging.debug("ref_idx_l0[0]: %d", ref_idx_l0[0])
 
             self.__show_binary_fragment()
 
-            mvd_l0 = []
+            mvd_l0 = []   # hard code for 16x16 macroblock
             for compIdx in range(0, 2):
                 if self.pps.entropy_coding_mode_flag == 0:
                     #mvd_l0[0][0][compIdx] = self.stream.read('se')
@@ -499,6 +502,7 @@ class NalParser():
                 else:
                     #mvd_l0[0][0][compIdx] = self.stream.read('ae')
                     mvd_l0.append(self.stream.peek(64))
+            logging.debug("mvd_l0: %s", mvd_l0)
 
     def __sub_mb_pred(self):
         """
