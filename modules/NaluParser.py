@@ -28,6 +28,7 @@ import copy
 import sys
 import matplotlib.pyplot as plt
 import transform
+import statistics
 
 #class NaluResolver():
 #    def __init__(self):
@@ -334,6 +335,9 @@ class NalParser():
         self.nAnB = np.zeros((int(height/4), int(width/4)), int)
         self.nAnB_UV = np.zeros((2, int(height/8), int(width/8)), int)
 
+        self.mvd = np.zeros((int(height/16), int(width/16), 2), int)  # just support 16x16 macroblock
+        self.mv  = np.zeros((int(height/16), int(width/16), 2), int)  # just support 16x16 macroblock
+
         self.blk16x16Idx_x = 0   # x position of 16x16 block in this frame
         self.blk16x16Idx_y = 0   # y position of 16x16 block in this frame
 
@@ -494,15 +498,16 @@ class NalParser():
 
             self.__show_binary_fragment()
 
-            mvd_l0 = []   # hard code for 16x16 macroblock
+            mvd_l0 = [0, 0]   # hard code for 16x16 macroblock
             for compIdx in range(0, 2):
                 if self.pps.entropy_coding_mode_flag == 0:
                     #mvd_l0[0][0][compIdx] = self.stream.read('se')
-                    mvd_l0.append(self.stream.read('se'))
+                    mvd_l0[compIdx] = self.stream.read('se')
                 else:
                     #mvd_l0[0][0][compIdx] = self.stream.read('ae')
-                    mvd_l0.append(self.stream.peek(64))
+                    mvd_l0[compIdx] = self.stream.peek(64)
             logging.debug("mvd_l0: %s", mvd_l0)
+            self.__set_motion_vector(mvd_l0)
 
     def __sub_mb_pred(self):
         """
@@ -721,6 +726,7 @@ class NalParser():
                         #do AC level transform
                         temp4x4ACLevel = copy.deepcopy(coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)].astype(int))
 
+                        # the process here is different from __residual_block_Intra16x16
                         # preSample = np.zeros(16, 16)
                         # if self.blk16x16Idx_x==73 and self.blk16x16Idx_y==7:
                         #     preSample = []
@@ -883,6 +889,51 @@ class NalParser():
         """
         example_len = length if (self.stream.len-self.stream.pos)>length else (self.stream.len-self.stream.pos)
         logging.debug("following data: %s", self.stream.peek(example_len).bin)
+
+    def __set_motion_vector(self, mvd):
+        """
+        calculate the motion vector accroding to mvd
+        according to 8.4.1.3.1 on page 120 of H.264 standard
+        """
+        self.mvd[self.blk16x16Idx_y, self.blk16x16Idx_x] = mvd
+
+        mvp = [0, 0]
+        mvA = [0, 0]
+        mvB = [0, 0]
+        mvC = [0, 0]
+        if self.blk16x16Idx_y==0 and self.blk16x16Idx_x==0:
+            # A B C not available
+            mvA = [0, 0]
+            mvB = [0, 0]
+            mvC = [0, 0]
+        
+        elif self.blk16x16Idx_x==0 and self.blk16x16Idx_y!=0:
+            # A not availabl, B & C available
+            mvA = [0, 0]
+            mvB = self.mv[self.blk16x16Idx_y-1, self.blk16x16Idx_x]
+            mvC = self.mv[self.blk16x16Idx_y-1, self.blk16x16Idx_x+1]
+
+        elif self.blk16x16Idx_x!=0 and self.blk16x16Idx_y==0:
+            # A available, B C not available
+            mvA = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x-1]
+            mvB = mvA
+            mvC = mvA
+        else:
+            # A, B, C available
+            mvA = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x-1]
+            mvB = self.mv[self.blk16x16Idx_y-1, self.blk16x16Idx_x]
+            x_C = self.blk16x16Idx_x+1
+            if x_C >= self.mv.shape[1]:
+                mvC = mvA
+        
+        mvp[0] = statistics.median([mvA[0], mvB[0], mvC[0]])
+        mvp[1] = statistics.median([mvA[1], mvB[1], mvC[1]])
+
+        self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][0] = mvd[0] + mvp[0]
+        self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][1] = mvd[1] + mvp[1]
+
+        logging.debug("mvp: %s", mvp)
+        logging.debug("mv: %s", self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x])
 
 def main(h264file):
     """
