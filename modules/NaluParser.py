@@ -925,6 +925,8 @@ class NalParser():
             x_C = self.blk16x16Idx_x+1
             if x_C >= self.mv.shape[1]:
                 mvC = mvA
+            else:
+                mvC = self.mv[self.blk16x16Idx_y-1, x_C]
         
         mvp[0] = statistics.median([mvA[0], mvB[0], mvC[0]])
         mvp[1] = statistics.median([mvA[1], mvB[1], mvC[1]])
