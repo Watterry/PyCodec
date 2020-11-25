@@ -111,5 +111,5 @@ if __name__ == '__main__':
     temp = BitStream('0b01')
     temp2 = pow(2, leadingZeroBits) - 1 + temp.int
 
-    main("E:/liumangxuxu/code/PyCodec/test/BasketballPass_720p_P_16x16_without_Intra_4x4.264")
+    main("../test/BasketballPass_720p_P_16x16_without_Intra_4x4.264")
     #main("E:/liumangxuxu/code/PyCodec/test/lena_x264_baseline_I_16x16.264")

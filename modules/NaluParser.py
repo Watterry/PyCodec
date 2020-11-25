@@ -311,7 +311,7 @@ class NalParser():
         logging.info("}")
 
         # temp code, load reference frame
-        self.reference = np.load("keyframe-BasketballPass_720p_P_16x16_without_Intra_4x4.npy")
+        self.reference = np.load("../test/keyframe-BasketballPass_720p_P_16x16_without_Intra_4x4.npy")
         # plt.figure()
         # plt.imshow(self.reference, cmap='gray')
         # plt.title("Whole image")
