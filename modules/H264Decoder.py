@@ -29,6 +29,8 @@ sps_parser = SpsParser()
 pps_parser = PpsParser()
 nal_parser = NalParser()
 
+index = 0
+
 def get_sps(bytes):
     # do something with the NALU bytes
     logging.debug("get sps")
@@ -48,23 +50,19 @@ def get_aud(bytes):
 
 def get_slice(bytes):
     # do something with the NALU bytes
-    logging.debug("slice")
+    logging.debug("----------- slice ---------------")
 
-    residual, modemap = nal_parser.parse(nal, sps_parser, pps_parser)
-    
-    image = prediction.inverseIntraPrediction(residual, modemap, 16)
+    global index
+    if index==0:
+        index = index + 1
+        return
 
-    plt.figure()
-    plt.imshow(residual, cmap='gray')
-    plt.title("residual image")
-
-    plt.figure()
-    plt.imshow(modemap, cmap='gray')
-    plt.title("ModeMap image")
+    image = nal_parser.parse(BitStream(bytes), sps_parser, pps_parser)
 
     plt.figure()
     plt.imshow(image, cmap='gray')
     plt.title("Inverse image")
+    #np.save("image.npy", image)
 
     plt.show()
 
@@ -79,9 +77,9 @@ def main(h264file):
         h264file: h264file name, should be using suffix .264 o .h264
     """
     # Test Case 1: use test data with one macroblock directly, hard code binary data
-    #sps = BitStream('0x42c01edb02004190')
-    #pps = BitStream('0xca83cb20')
-    #nal = BitStream('0x88843f0a60109e4400020ed2fd431c63a895f346c35c5f92408f38eae8430cc80c8abc765961')
+    # sps = BitStream('0x42c01edb02004190')
+    # pps = BitStream('0xca83cb20')
+    # nal = BitStream('0x88843f0a60109e4400020ed2fd431c63a895f346c35c5f92408f38eae8430cc80c8abc765961')
 
     # Test Case 2: read H264 binary code from file
 
@@ -107,5 +105,11 @@ if __name__ == '__main__':
     )
     logging.getLogger('matplotlib.font_manager').disabled = True
 
-    main("E:/liumangxuxu/code/PyCodec/test/BasketballPass_720p.264")
+    leadingZeroBits = 2
+    temp = 'bits:'+str(leadingZeroBits)
+
+    temp = BitStream('0b01')
+    temp2 = pow(2, leadingZeroBits) - 1 + temp.int
+
+    main("E:/liumangxuxu/code/PyCodec/test/BasketballPass_720p_P_16x16_without_Intra_4x4.264")
     #main("E:/liumangxuxu/code/PyCodec/test/lena_x264_baseline_I_16x16.264")

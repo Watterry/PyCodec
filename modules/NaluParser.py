@@ -29,6 +29,7 @@ import sys
 import matplotlib.pyplot as plt
 import transform
 import statistics
+import prediction
 
 #class NaluResolver():
 #    def __init__(self):
@@ -309,9 +310,25 @@ class NalParser():
         
         logging.info("}")
 
+        # temp code, load reference frame
+        self.reference = np.load("keyframe-BasketballPass_720p_P_16x16_without_Intra_4x4.npy")
+        # plt.figure()
+        # plt.imshow(self.reference, cmap='gray')
+        # plt.title("Whole image")
+    
+        # plt.figure()
+        # plt.imshow(self.reference[0:16, 0:16], cmap='gray')
+        # plt.title("block image")
+
+        # plt.show()
+
         self.__slice_data()
 
-        return self.residual, self.modemap
+        if self.MbPartPredMode == 'Intra_16x16':
+            image = prediction.inverseIntraPrediction(self.residual, self.modemap, 16)
+            return image
+        else:
+            return self.residual
 
     def __slice_data(self):
         """
@@ -529,23 +546,25 @@ class NalParser():
         """
         residual
         """
+        row = self.blk16x16Idx_y*16
+        col = self.blk16x16Idx_x*16
+
+        # dump luma block to image
         if self.MbPartPredMode == 'Intra_16x16':
             coeffBlock_16x16, residual_16x16 = self.__residual_block_Intra16x16()
+            self.coefficients[row:(row+16), col:(col+16)] = copy.deepcopy(coeffBlock_16x16)
+            self.modemap[row:(row+16), col:(col+16)] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
+            self.residual[row:(row+16), col:(col+16)] = copy.deepcopy(residual_16x16)
         else:
             coeffBlock_16x16, residual_16x16 = self.__residual_block_LumaLevel()
+            self.coefficients[row:(row+16), col:(col+16)] = copy.deepcopy(coeffBlock_16x16)
+            self.residual[row:(row+16), col:(col+16)] = copy.deepcopy(residual_16x16)
 
         logging.debug("Reconstructed 16x16 coefficients:")
         logging.debug("\n%s", coeffBlock_16x16)
 
         logging.debug("Reconstructed 16x16 residual:")
         logging.debug("\n%s", residual_16x16)
-
-        # dump luma block to image
-        row = self.blk16x16Idx_y*16
-        col = self.blk16x16Idx_x*16
-        self.coefficients[row:(row+16), col:(col+16)] = copy.deepcopy(coeffBlock_16x16)
-        self.modemap[row:(row+16), col:(col+16)] = H264Types.get_I_slice_Intra16x16PredMode(self.mb_type)[0]
-        self.residual[row:(row+16), col:(col+16)] = copy.deepcopy(residual_16x16)
 
         #logging.debug("Reconstructed image coefficients:")
         #logging.debug("\n%s", coefficients)
@@ -691,6 +710,24 @@ class NalParser():
         coeffBlock_16x16 = np.zeros((16, 16), int)
         residual_16x16 = np.zeros((16, 16), int)
 
+        # the process here is different from __residual_block_Intra16x16
+        mc_sample = np.zeros((16, 16), int)
+        ref_x = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][0] + self.blk16x16Idx_x * 16 * 4
+        ref_y = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][1] + self.blk16x16Idx_y * 16 * 4
+        ref_x = int(ref_x/4) #TODO: should use interpolation here
+        ref_y = int(ref_y/4) #TODO: should use interpolation here
+
+        # temp code
+        if ref_x<0:
+            ref_x = 1279 + ref_x
+        if ref_y<0:
+            ref_y = 719 + ref_y
+        if ref_x+16>=1280:
+            ref_x = 1280 - 16 -1
+        if ref_y+16>=720:
+            ref_y = 720 - 16 - 1
+        mc_sample = copy.deepcopy(self.reference[ref_y:(ref_y+16), ref_x:(ref_x+16)])
+
         luma4x4BlkIdx = 0
         for m in range(0, 2):
             for n in range(0, 2):
@@ -726,13 +763,11 @@ class NalParser():
                         #do AC level transform
                         temp4x4ACLevel = copy.deepcopy(coeffBlock_16x16[x*4:(x*4+4), y*4:(y*4+4)].astype(int))
 
-                        # the process here is different from __residual_block_Intra16x16
-                        # preSample = np.zeros(16, 16)
-                        # if self.blk16x16Idx_x==73 and self.blk16x16Idx_y==7:
-                        #     preSample = []
+                        # according to page 140 formula 8-289
+                        CP = mc_sample[x*4:(x*4+4), y*4:(y*4+4)]
 
-                        residualAC = transform.inverse_P_Reidual4x4ScalingAndTransform(temp4x4ACLevel, self.mb_current_qp)
-                        residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC)
+                        residualAC = transform.inverse_P_Reidual4x4ScalingAndTransform(CP, temp4x4ACLevel, self.mb_current_qp)
+                        residual_16x16[x*4:(x*4+4), y*4:(y*4+4)] = copy.deepcopy(residualAC+CP)
 
                         luma4x4BlkIdx = luma4x4BlkIdx + 1
 

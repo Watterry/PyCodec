@@ -286,11 +286,12 @@ def inverseReidual4x4ScalingAndTransform(C, QP):
     #logging.debug("r\n%s", r)
     return r
 
-def inverse_P_Reidual4x4ScalingAndTransform(C, QP):
+def inverse_P_Reidual4x4ScalingAndTransform(P, C, QP):
     """
     Scaling and transformation process for residual 4x4 P macroblocks
     According to 8.6.1.1 on page 140 of [H.264 standard Book]
     Args:
+        P: 4x4 array of prediction samples
         C: input coefficients of residual 4x4 block, with C[0, 0] replaced by LumacDC[0, 0] in Intra16x16 mode
         QP: the qp step
     Return:
@@ -307,7 +308,7 @@ def inverse_P_Reidual4x4ScalingAndTransform(C, QP):
                     [1, -1, -1, 2],
                     [1, -2, 1, -1]])
 
-    temp = np.dot(CL4, C)
+    temp = np.dot(CL4, P)
     f = np.dot(temp, CR4)
 
     # step2: Scaling and quantization
@@ -319,7 +320,7 @@ def inverse_P_Reidual4x4ScalingAndTransform(C, QP):
                   [16, 20, 16, 20],
                   [20, 25, 20, 25]])
 
-    Cs = (((C * ls4 * A) << int(QP/6)) >> 6)
+    Cs = f + (((C * ls4 * A) << int(QP/6)) >> 6)
 
     levelScale2 = getMf4ByQP(QP)
 
