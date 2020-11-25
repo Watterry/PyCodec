@@ -315,11 +315,6 @@ class NalParser():
         # plt.figure()
         # plt.imshow(self.reference, cmap='gray')
         # plt.title("Whole image")
-    
-        # plt.figure()
-        # plt.imshow(self.reference[0:16, 0:16], cmap='gray')
-        # plt.title("block image")
-
         # plt.show()
 
         self.__slice_data()
@@ -376,10 +371,15 @@ class NalParser():
                     prevMbSkipped = (mb_skip_run>0)
 
                     if mb_skip_run>0:
-                        macroblockIdx = macroblockIdx + mb_skip_run
-                        logging.debug("macroblockIdx: %d", macroblockIdx)
-
+                        # do the skip calculation of following skip_run macroblock
                         for i in range(0, mb_skip_run):
+
+                            self.__set_P_skip_macroblock()
+
+                            macroblockIdx = macroblockIdx + 1
+                            logging.debug("----------------------------------------")
+                            logging.debug("macroblockIdx: %d", macroblockIdx)
+
                             self.blk16x16Idx_x = self.blk16x16Idx_x + 1
                             if self.blk16x16Idx_x >= row_block_num:
                                 self.blk16x16Idx_x = 0
@@ -710,23 +710,7 @@ class NalParser():
         coeffBlock_16x16 = np.zeros((16, 16), int)
         residual_16x16 = np.zeros((16, 16), int)
 
-        # the process here is different from __residual_block_Intra16x16
-        mc_sample = np.zeros((16, 16), int)
-        ref_x = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][0] + self.blk16x16Idx_x * 16 * 4
-        ref_y = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][1] + self.blk16x16Idx_y * 16 * 4
-        ref_x = int(ref_x/4) #TODO: should use interpolation here
-        ref_y = int(ref_y/4) #TODO: should use interpolation here
-
-        # temp code
-        if ref_x<0:
-            ref_x = 1279 + ref_x
-        if ref_y<0:
-            ref_y = 719 + ref_y
-        if ref_x+16>=1280:
-            ref_x = 1280 - 16 -1
-        if ref_y+16>=720:
-            ref_y = 720 - 16 - 1
-        mc_sample = copy.deepcopy(self.reference[ref_y:(ref_y+16), ref_x:(ref_x+16)])
+        mc_sample = self.__get_P_prediction()
 
         luma4x4BlkIdx = 0
         for m in range(0, 2):
@@ -971,6 +955,45 @@ class NalParser():
 
         logging.debug("mvp: %s", mvp)
         logging.debug("mv: %s", self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x])
+
+    def __get_P_prediction(self):
+        """
+        get P prediction according to MVP
+        """
+        # the process here is different from __residual_block_Intra16x16
+        mc_sample = np.zeros((16, 16), int)
+        ref_x = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][0] + self.blk16x16Idx_x * 16 * 4
+        ref_y = self.mv[self.blk16x16Idx_y, self.blk16x16Idx_x][1] + self.blk16x16Idx_y * 16 * 4
+        ref_x = int(ref_x/4) #TODO: should use interpolation here
+        ref_y = int(ref_y/4) #TODO: should use interpolation here
+
+        # temp code
+        if ref_x<0:
+            ref_x = 1279 + ref_x
+        if ref_y<0:
+            ref_y = 719 + ref_y
+        if ref_x+16>=1280:
+            ref_x = 1280 - 16 -1
+        if ref_y+16>=720:
+            ref_y = 720 - 16 - 1
+        mc_sample = copy.deepcopy(self.reference[ref_y:(ref_y+16), ref_x:(ref_x+16)])
+
+        return mc_sample
+
+    def __set_P_skip_macroblock(self):
+        """
+        set P skip macroblock to restore frame
+        """
+        mvd_l0 = [0, 0]
+        self.__set_motion_vector(mvd_l0)   # P_skip macroblock has no MVP
+
+        row = self.blk16x16Idx_y*16
+        col = self.blk16x16Idx_x*16
+
+        mc_sample = self.__get_P_prediction()
+        
+        self.coefficients[row:(row+16), col:(col+16)] = 0
+        self.residual[row:(row+16), col:(col+16)] = copy.deepcopy(mc_sample)
 
 def main(h264file):
     """
