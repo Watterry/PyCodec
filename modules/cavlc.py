@@ -507,7 +507,7 @@ def decode(stream, nC, maxNumCoeff=16):
     logging.debug('coeffLevel: %s', coeffLevel)
 
     zig = ZigZag.ZigzagMatrix()
-    print("ZiaZag scan:")
+    logging.debug("ZiaZag scan:")
     matrix_x = 4
     if maxNumCoeff==15 or maxNumCoeff==16:
         matrix_x = 4
